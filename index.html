@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AWS SAA Practice Exam</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Start screen -->
+    <section id="screen-start" class="screen">
+      <header class="hero">
+        <h1>AWS Certification Prep</h1>
+        <p class="subtitle">Solutions Architect &ndash; Associate (SAA-C03)</p>
+      </header>
+
+      <div class="card">
+        <h2>Start a practice session</h2>
+        <p class="muted">Questions are drawn randomly from a bank of <span id="bank-size"></span>. Options are shuffled every time.</p>
+
+        <label class="field-label">Number of questions</label>
+        <div class="count-options" id="count-options"></div>
+
+        <button class="btn btn-primary btn-lg" id="btn-start">Start Exam</button>
+      </div>
+
+      <div class="card" id="history-card" hidden>
+        <h2>Recent sessions</h2>
+        <ul id="history-list" class="history-list"></ul>
+      </div>
+    </section>
+
+    <!-- Exam screen -->
+    <section id="screen-exam" class="screen" hidden>
+      <div class="exam-topbar">
+        <span id="exam-progress-text"></span>
+        <span id="exam-timer">00:00</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+
+      <div class="card question-card">
+        <div class="tag-row">
+          <span class="domain-tag" id="q-domain"></span>
+          <span class="type-tag" id="q-type"></span>
+        </div>
+        <h2 class="question-text" id="q-text"></h2>
+        <p class="pick-hint" id="q-hint"></p>
+        <div class="options" id="q-options"></div>
+      </div>
+
+      <div class="exam-nav">
+        <button class="btn" id="btn-prev">&larr; Previous</button>
+        <button class="btn btn-primary" id="btn-next">Next &rarr;</button>
+        <button class="btn btn-success" id="btn-finish" hidden>Finish Exam</button>
+      </div>
+    </section>
+
+    <!-- Results screen -->
+    <section id="screen-results" class="screen" hidden>
+      <div class="card score-card">
+        <h1 id="score-headline"></h1>
+        <div class="score-big" id="score-big"></div>
+        <p class="muted" id="score-detail"></p>
+        <div id="domain-breakdown" class="domain-breakdown"></div>
+      </div>
+
+      <h2 class="review-heading">Answer Review</h2>
+      <div id="review-list"></div>
+
+      <div class="exam-nav">
+        <button class="btn btn-primary btn-lg" id="btn-restart">New Session</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
