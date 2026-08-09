@@ -19,20 +19,35 @@ python3 -m http.server 8080
 
 ## Features
 
-- Choose session length: 5, 10, 15, 25, or all questions
-- Questions and option order are randomized every session, like the real exam
+- **Topic filter** — practice one or more of the 12 study topics (e.g. just Databases + VPC), or all topics. Question counts adapt to the filtered pool.
+- **No repeats until you've seen everything** — each question has a stable id and the app tracks how many times you've been served it. New sessions draw from the least-seen questions first, so you cycle the entire (filtered) bank before anything comes back. A coverage bar on the start screen shows how much you've worked through, with a reset button.
+- Choose session length: 5, 10, 15, 25, 50, or the whole pool
+- Option order is randomized every session, like the real exam
 - Single-answer and "Choose TWO" multiple-response questions — multi questions are clearly flagged with an orange **Multiple response** badge and checkbox-style options
 - Timer and progress bar while you practice
 - Results screen with:
   - Overall score against the real exam pass mark (~72%)
   - Three-way grading: **Correct**, **Partially correct** (some but not all right answers on a multiple-response question), and **Incorrect** — with missed correct answers called out. Note: the real exam gives no credit for partial answers; the % score here counts fully correct answers only.
-  - Per-domain breakdown (the four SAA-C03 exam domains)
+  - Breakdown by exam domain **and by topic (weakest first)**, so you know exactly what to filter on next session
   - Full answer review — every option annotated with a one-liner on why it's right or wrong
 - Last 5 session scores kept in browser localStorage
 
 ## Question bank
 
-All questions live in [questions.js](questions.js) — currently 60 questions covering the four SAA-C03 domains, including newer exam-emphasis topics (Transit Gateway, PrivateLink, EventBridge, Step Functions, Aurora Global Database / Serverless v2, ECS Fargate, Storage Gateway, DataSync, Snowball, DMS/SCT, Athena, Macie, Object Lock, permissions boundaries):
+All questions live in [questions.js](questions.js) — currently **115 questions**, organized by topic and tagged with their exam domain.
+
+**Topics** (the filter chips on the start screen):
+
+| Topic | Qs | Topic | Qs |
+|---|---|---|---|
+| IAM & Identity | 9 | Storage | 12 |
+| Data Protection & Encryption | 9 | Databases | 11 |
+| Network & Edge Security | 9 | Decoupling & Integration | 11 |
+| VPC & Hybrid Connectivity | 10 | Analytics & Data Pipelines | 7 |
+| DNS, CDN & Global Traffic | 8 | Migration & Transfer | 8 |
+| Compute, Containers & Scaling | 11 | Cost Management & Governance | 10 |
+
+**Exam domains** (used for the results breakdown, weighted like the real exam):
 
 1. Design Secure Architectures (~30% of the real exam)
 2. Design Resilient Architectures (~26%)
@@ -45,6 +60,7 @@ Append an object to `QUESTION_BANK` in `questions.js`:
 
 ```js
 {
+  topic: "Databases",                      // one of the TOPICS listed at the top of the file
   domain: "Design Secure Architectures",   // one of the four domains above
   pick: 1,                                  // 1 = single answer, 2 = "Choose TWO"
   question: "Your question text?",
@@ -56,4 +72,4 @@ Append an object to `QUESTION_BANK` in `questions.js`:
 }
 ```
 
-The app picks up new questions automatically — no other changes needed.
+`pick` must equal the number of options marked `correct: true`. The app picks up new questions automatically — no other changes needed. Question ids are hashed from the question text, so editing a question's wording makes the app treat it as unseen.

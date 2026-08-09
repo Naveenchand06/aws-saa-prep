@@ -1,4 +1,14 @@
-// AWS SAA practice exam — all state lives in this session object.
+// AWS SAA practice exam.
+//
+// Question selection avoids repeats across sessions: every question gets a
+// stable id (hashed from its text) and the app records how many times you have
+// been served it. A new session always draws from the least-seen questions
+// first, so you cycle through the entire (filtered) bank before anything
+// repeats.
+
+const SEEN_KEY = "saa-seen-v1";
+const HISTORY_KEY = "saa-history";
+
 const state = {
   questions: [],   // selected questions for this session (with shuffled options)
   answers: [],     // per question: Set of selected option indexes
@@ -6,6 +16,7 @@ const state = {
   startedAt: null,
   timerId: null,
   count: 10,
+  topics: new Set(),   // empty = all topics
 };
 
 const $ = (id) => document.getElementById(id);
@@ -25,33 +36,141 @@ function shuffle(arr) {
   return a;
 }
 
-// ---------- Start screen ----------
-const COUNT_CHOICES = [5, 10, 15, 25, QUESTION_BANK.length];
+function readJSON(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
 
-function renderStart() {
-  $("bank-size").textContent = `${QUESTION_BANK.length} questions`;
-  const wrap = $("count-options");
+// Stable id for a question, derived from its text (FNV-1a style hash).
+function questionId(q) {
+  const str = q.question;
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+QUESTION_BANK.forEach((q) => { q.id = questionId(q); });
+
+// ---------- Seen tracking ----------
+function getSeen() {
+  return readJSON(SEEN_KEY, {});
+}
+
+function recordSeen(questions) {
+  const seen = getSeen();
+  questions.forEach((q) => { seen[q.id] = (seen[q.id] || 0) + 1; });
+  localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+}
+
+function filteredPool() {
+  if (state.topics.size === 0) return QUESTION_BANK;
+  return QUESTION_BANK.filter((q) => state.topics.has(q.topic));
+}
+
+// Draw `n` questions, preferring ones seen the fewest times. Within a
+// seen-count tier the order is random, so sessions still feel fresh.
+function drawQuestions(pool, n) {
+  const seen = getSeen();
+  const tiers = new Map();
+  pool.forEach((q) => {
+    const c = seen[q.id] || 0;
+    if (!tiers.has(c)) tiers.set(c, []);
+    tiers.get(c).push(q);
+  });
+  const picked = [];
+  [...tiers.keys()].sort((a, b) => a - b).forEach((c) => {
+    if (picked.length >= n) return;
+    picked.push(...shuffle(tiers.get(c)).slice(0, n - picked.length));
+  });
+  return shuffle(picked);
+}
+
+// ---------- Start screen ----------
+const COUNT_CHOICES = [5, 10, 15, 25, 50];
+
+function renderTopics() {
+  const wrap = $("topic-options");
   wrap.innerHTML = "";
-  COUNT_CHOICES.forEach((n, i) => {
-    const label = n === QUESTION_BANK.length ? `All (${n})` : String(n);
+
+  const allBtn = document.createElement("button");
+  allBtn.className = "topic-btn all" + (state.topics.size === 0 ? " selected" : "");
+  allBtn.textContent = `All topics (${QUESTION_BANK.length})`;
+  allBtn.onclick = () => { state.topics.clear(); renderStart(); };
+  wrap.appendChild(allBtn);
+
+  TOPICS.forEach((topic) => {
+    const n = QUESTION_BANK.filter((q) => q.topic === topic).length;
+    if (n === 0) return;
     const btn = document.createElement("button");
-    btn.className = "count-btn" + (n === state.count ? " selected" : "");
-    btn.textContent = label;
+    btn.className = "topic-btn" + (state.topics.has(topic) ? " selected" : "");
+    btn.innerHTML = `${topic} <span class="topic-count">${n}</span>`;
     btn.onclick = () => {
-      state.count = n;
-      wrap.querySelectorAll(".count-btn").forEach((b) => b.classList.remove("selected"));
-      btn.classList.add("selected");
+      if (state.topics.has(topic)) state.topics.delete(topic);
+      else state.topics.add(topic);
+      renderStart();
     };
     wrap.appendChild(btn);
   });
+}
+
+function renderCounts() {
+  const poolSize = filteredPool().length;
+  const wrap = $("count-options");
+  wrap.innerHTML = "";
+
+  const choices = COUNT_CHOICES.filter((n) => n < poolSize);
+  choices.push(poolSize); // always offer the whole filtered pool
+
+  if (!choices.includes(state.count)) state.count = choices[Math.min(1, choices.length - 1)];
+
+  choices.forEach((n) => {
+    const btn = document.createElement("button");
+    btn.className = "count-btn" + (n === state.count ? " selected" : "");
+    btn.textContent = n === poolSize ? `All (${n})` : String(n);
+    btn.onclick = () => { state.count = n; renderCounts(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function renderCoverage() {
+  const seen = getSeen();
+  const pool = filteredPool();
+  const seenCount = pool.filter((q) => seen[q.id]).length;
+  const pct = pool.length ? Math.round((seenCount / pool.length) * 100) : 0;
+  $("coverage-fill").style.width = `${pct}%`;
+  const scope = state.topics.size === 0 ? "the full bank" : "the selected topics";
+  $("coverage-text").textContent =
+    `You've been served ${seenCount} of ${pool.length} questions in ${scope} (${pct}%). ` +
+    (seenCount >= pool.length && pool.length > 0
+      ? "You've covered everything — questions will now start cycling again, least-seen first."
+      : "New sessions draw unseen questions first.");
+}
+
+function renderPoolNote() {
+  const pool = filteredPool();
+  const label = state.topics.size === 0
+    ? "all topics"
+    : `${state.topics.size} topic${state.topics.size > 1 ? "s" : ""}`;
+  $("pool-note").textContent = `Drawing ${state.count} question${state.count > 1 ? "s" : ""} from ${pool.length} available in ${label}.`;
+  $("btn-start").disabled = pool.length === 0;
+}
+
+function renderStart() {
+  renderTopics();
+  renderCounts();
+  renderPoolNote();
+  renderCoverage();
   renderHistory();
 }
 
 function renderHistory() {
-  let history = [];
-  try {
-    history = JSON.parse(localStorage.getItem("saa-history") || "[]");
-  } catch (_) {}
+  const history = readJSON(HISTORY_KEY, []);
   const card = $("history-card");
   if (!history.length) { card.hidden = true; return; }
   card.hidden = false;
@@ -67,19 +186,18 @@ function renderHistory() {
 }
 
 function saveHistory(score, total) {
-  let history = [];
-  try {
-    history = JSON.parse(localStorage.getItem("saa-history") || "[]");
-  } catch (_) {}
+  const history = readJSON(HISTORY_KEY, []);
   history.push({ score, total, date: new Date().toLocaleString() });
-  localStorage.setItem("saa-history", JSON.stringify(history.slice(-20)));
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-20)));
 }
 
 // ---------- Exam ----------
 function startExam() {
-  state.questions = shuffle(QUESTION_BANK)
-    .slice(0, state.count)
+  const pool = filteredPool();
+  if (!pool.length) return;
+  state.questions = drawQuestions(pool, Math.min(state.count, pool.length))
     .map((q) => ({ ...q, options: shuffle(q.options) }));
+  recordSeen(state.questions);
   state.answers = state.questions.map(() => new Set());
   state.current = 0;
   state.startedAt = Date.now();
@@ -103,7 +221,8 @@ function renderQuestion() {
 
   $("exam-progress-text").textContent = `Question ${state.current + 1} of ${total}`;
   $("progress-fill").style.width = `${((state.current + 1) / total) * 100}%`;
-  $("q-domain").textContent = q.domain;
+  $("q-topic").textContent = q.topic;
+
   const typeTag = $("q-type");
   if (q.pick > 1) {
     typeTag.textContent = `Multiple response — choose ${q.pick === 2 ? "TWO" : q.pick}`;
@@ -112,6 +231,7 @@ function renderQuestion() {
     typeTag.textContent = "Single choice";
     typeTag.className = "type-tag";
   }
+
   $("q-text").textContent = q.question;
   $("q-hint").textContent = q.pick > 1
     ? `This question has ${q.pick} correct answers — select ${q.pick === 2 ? "TWO" : q.pick}.`
@@ -181,14 +301,17 @@ function renderResults() {
   let score = 0;
   let partials = 0;
   const domainStats = {};
+  const topicStats = {};
 
   const grades = state.questions.map((q, qi) => {
     const grade = gradeQuestion(q, state.answers[qi]);
     if (grade === "correct") score++;
     if (grade === "partial") partials++;
-    domainStats[q.domain] = domainStats[q.domain] || { ok: 0, total: 0 };
-    domainStats[q.domain].total++;
-    if (grade === "correct") domainStats[q.domain].ok++;
+    [[domainStats, q.domain], [topicStats, q.topic]].forEach(([bucket, key]) => {
+      bucket[key] = bucket[key] || { ok: 0, total: 0 };
+      bucket[key].total++;
+      if (grade === "correct") bucket[key].ok++;
+    });
     return grade;
   });
 
@@ -206,16 +329,22 @@ function renderResults() {
     `${parts.join(" · ")} · ${mins < 1 ? "under a minute" : mins + " min"} · pass mark ≈ 72%` +
     (partials ? " (the real exam gives no credit for partial answers)" : "");
 
-  $("domain-breakdown").innerHTML = Object.entries(domainStats)
-    .map(([d, s]) => {
-      const p = Math.round((s.ok / s.total) * 100);
-      return `<div class="domain-row">
-        <span class="domain-name">${d}</span>
-        <div class="domain-bar"><div class="domain-bar-fill ${p >= 72 ? "pass" : "fail"}" style="width:${p}%"></div></div>
-        <span class="domain-pct">${s.ok}/${s.total}</span>
-      </div>`;
-    })
-    .join("");
+  const barRows = (stats) =>
+    Object.entries(stats)
+      .sort((a, b) => a[1].ok / a[1].total - b[1].ok / b[1].total)
+      .map(([name, s]) => {
+        const p = Math.round((s.ok / s.total) * 100);
+        return `<div class="domain-row">
+          <span class="domain-name">${name}</span>
+          <div class="domain-bar"><div class="domain-bar-fill ${p >= 72 ? "pass" : "fail"}" style="width:${p}%"></div></div>
+          <span class="domain-pct">${s.ok}/${s.total}</span>
+        </div>`;
+      })
+      .join("");
+
+  $("domain-breakdown").innerHTML =
+    `<h3 class="breakdown-heading">By exam domain</h3>${barRows(domainStats)}` +
+    `<h3 class="breakdown-heading">By topic (weakest first)</h3>${barRows(topicStats)}`;
 
   const VERDICT = {
     correct:   { cardCls: "ok",      verdictCls: "pass",    label: "Correct" },
@@ -245,7 +374,7 @@ function renderResults() {
       return `<div class="card review-card ${v.cardCls}">
         <div class="review-head">
           <span class="review-verdict ${v.verdictCls}">${v.label}</span>
-          <span class="domain-tag">${q.domain}</span>
+          <span class="domain-tag">${q.topic}</span>
           ${multi ? `<span class="type-tag multi">Multiple response</span>` : ""}
         </div>
         <h3>Q${qi + 1}. ${q.question}</h3>
@@ -263,5 +392,11 @@ $("btn-prev").onclick = () => { state.current--; renderQuestion(); };
 $("btn-next").onclick = () => { state.current++; renderQuestion(); };
 $("btn-finish").onclick = finishExam;
 $("btn-restart").onclick = () => { renderStart(); showScreen("start"); };
+$("btn-reset-seen").onclick = () => {
+  if (confirm("Reset which questions you've been served? Your score history is kept.")) {
+    localStorage.removeItem(SEEN_KEY);
+    renderStart();
+  }
+};
 
 renderStart();

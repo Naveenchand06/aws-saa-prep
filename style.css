@@ -46,7 +46,44 @@ body {
 
 .field-label { display: block; font-weight: 600; margin: 18px 0 8px; }
 
-.count-options { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+.topic-options { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.topic-btn {
+  padding: 7px 13px;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 0.86rem;
+  cursor: pointer;
+  color: var(--text);
+}
+.topic-btn:hover { border-color: var(--primary); }
+.topic-btn.selected {
+  border-color: var(--accent);
+  background: #fff7ec;
+  font-weight: 600;
+}
+.topic-btn.all { font-weight: 600; }
+.topic-count {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.topic-btn.selected .topic-count { color: #8a5a00; }
+
+.pool-note { color: var(--muted); font-size: 0.9rem; margin: 0 0 18px; }
+
+.coverage-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.coverage-fill { height: 100%; background: var(--primary); transition: width 0.25s; }
+.btn-small { padding: 6px 14px; font-size: 0.85rem; }
+
+.count-options { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
 .count-btn {
   padding: 10px 20px;
   border: 2px solid var(--border);
@@ -165,6 +202,15 @@ body {
 .score-big.fail { color: var(--red); }
 
 .domain-breakdown { margin-top: 20px; text-align: left; }
+.breakdown-heading {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 18px 0 8px;
+}
+.breakdown-heading:first-child { margin-top: 0; }
+.domain-name { overflow-wrap: anywhere; }
 .domain-row {
   display: grid;
   grid-template-columns: 1fr 140px 44px;
