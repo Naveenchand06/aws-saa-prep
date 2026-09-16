@@ -461,3 +461,99 @@ body {
   .site-nav-inner { min-height: 48px; padding: 8px 16px; }
   .filter-bar { top: 0; position: static; }
 }
+
+/* ---------- Cheatsheet page ---------- */
+.pill.cheap  { color: var(--green); background: var(--green-bg); border: 1px solid #bfe3b4; }
+.pill.mid    { color: var(--amber); background: var(--amber-bg); border: 1px solid #f0c36d; }
+.pill.pricey { color: var(--red); background: var(--red-bg); border: 1px solid #f0c4bb; }
+.pill.trap   { color: var(--red); background: var(--red-bg); border: 1px solid #f0c4bb; }
+
+.cs-search {
+  flex: 1 1 260px;
+  min-width: 180px;
+  padding: 7px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 0.92rem;
+  font-family: inherit;
+  color: var(--text);
+}
+.cs-search:focus { outline: none; border-color: var(--primary); }
+
+.cs-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 22px;
+}
+.cs-toc-link {
+  font-size: 0.82rem;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  text-decoration: none;
+  background: var(--card);
+}
+.cs-toc-link:hover { border-color: var(--primary); color: var(--primary); }
+
+.cs-h3 {
+  font-size: 1rem;
+  margin: 22px 0 8px;
+  color: var(--text);
+}
+
+.cs-table .topic { width: 28%; }
+.cs-table .pick {
+  width: 24%;
+  font-weight: 600;
+}
+.cs-table th.cost, .cs-table td.cost {
+  width: 116px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.cs-table th.num, .cs-table td.num {
+  width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.cs-table .topic .pill {
+  margin-right: 6px;
+  min-width: 20px;
+  text-align: center;
+}
+.cs-table code {
+  background: #eef0f3;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+
+.svc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.svc {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 11px 14px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  background: var(--card);
+}
+.svc strong {
+  display: block;
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+@media (max-width: 640px) {
+  .cs-table .topic, .cs-table .pick { width: auto; }
+  .svc-grid { grid-template-columns: 1fr; }
+}

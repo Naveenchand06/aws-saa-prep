@@ -13,9 +13,17 @@ open index.html
 Option 2 — serve it (nicer URLs, same thing):
 
 ```
-python3 -m http.server 8080
-# then visit http://localhost:8080
+python3 -m http.server 8111
+# then visit http://localhost:8111
 ```
+
+## Pages
+
+| Page | What it's for |
+|---|---|
+| [index.html](index.html) | The practice exam &mdash; topic filter, no-repeat question selection, partial-credit grading |
+| [study-guide.html](study-guide.html) | Course triage: which lectures to Study / Skim / Drop |
+| [cheatsheet.html](cheatsheet.html) | Decision cheatsheet &mdash; cost ladders, service discriminators, keyword triggers, one-line service glossary. Searchable. |
 
 ## Features
 
