@@ -21,362 +21,303 @@
   <main class="guide">
     <header class="guide-hero">
       <h1>SAA-C03 Decision Cheatsheet</h1>
-      <p class="subtitle muted">Built for someone who already runs this stuff daily. No tutorials &mdash; just the discriminators the exam actually tests: which service, which tier, and what it costs relative to the alternatives. <strong>EC2 internals and VPC/networking deep-dives are deliberately excluded</strong> per your call; those services still appear as one-liners in the glossary so nothing is a blind spot.</p>
+      <p class="subtitle muted">Discriminators only. Which service, which tier, what it costs. EC2 and VPC deep-dives excluded &mdash; those appear as one-liners in section 9.</p>
       <div class="legend">
         <span class="pill cheap">Cheapest</span>
         <span class="pill mid">Middle</span>
         <span class="pill pricey">Priciest</span>
-        <span class="pill trap">Classic trap</span>
+        <span class="pill trap">Trap</span>
       </div>
     </header>
 
     <div class="callout">
-      <p><strong>Read the question backwards.</strong> Find the constraint adjective first &mdash; <em>cheapest / least operational overhead / lowest latency / no code change / must survive a Region failure</em> &mdash; then pick the service that owns that adjective. Two options are usually both technically correct; only one matches the adjective.</p>
-      <p><strong>On prices below:</strong> approximate us-east-1, on-demand, per GB-month. The exam never asks for a number &mdash; it asks for the <em>ordering</em>. Learn the ladder, not the digits.</p>
+      <p><strong>Find the adjective first</strong> &mdash; cheapest / least overhead / lowest latency / survives a Region failure &mdash; then pick the service that owns it. Two options are usually both correct; one matches the adjective.</p>
+      <p><strong>Prices:</strong> approx us-east-1, per GB-month. Learn the order, not the digits.</p>
     </div>
 
     <div class="filter-bar">
       <span class="filter-label">Search:</span>
-      <input type="search" id="cs-search" class="cs-search" placeholder="e.g. glacier, aurora, snowball, cheapest&hellip;" autocomplete="off" />
+      <input type="search" id="cs-search" class="cs-search" placeholder="glacier, aurora, snowball&hellip;" autocomplete="off" />
       <button class="filter-btn ghost" id="btn-toggle-all">Collapse all</button>
       <span class="muted" id="filter-count" style="margin-left:auto;font-size:0.88rem;"></span>
     </div>
 
     <nav class="cs-toc" id="cs-toc" aria-label="Sections"></nav>
 
-    <!-- ============================================ -->
-    <h2>1. Keyword &rarr; service triggers</h2>
-    <p class="section-note">The highest-yield table here. Most SAA questions are won by spotting one phrase. If you only memorise one section, memorise this one.</p>
+    <h2>1. Keyword &rarr; service</h2>
+    <p class="section-note">Highest-yield table here. Most questions turn on one phrase.</p>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">If the question says&hellip;</th><th class="pick">Answer is almost always</th><th>Why / the trap</th></tr></thead>
+      <thead><tr><th class="topic">Question says</th><th class="pick">Answer</th><th>Trap</th></tr></thead>
       <tbody>
-        <tr><td class="topic">"Least operational overhead", "no servers to manage"</td><td class="pick">The serverless option (Lambda, Fargate, Aurora Serverless, Athena, Firehose)</td><td class="why">If two answers work, the managed one wins. "Self-managed on EC2" is nearly always wrong when this phrase appears.</td></tr>
-        <tr><td class="topic">"Most cost-effective" + interruptible / fault-tolerant / batch</td><td class="pick">Spot Instances</td><td class="why">"Can be resumed / retried" is the tell. If the workload can't be interrupted, Spot is the trap.</td></tr>
-        <tr><td class="topic">"Decouple", "handle spikes", "no lost orders"</td><td class="pick">SQS</td><td class="why">Buffer between tiers. If <em>multiple</em> systems each need a copy &rarr; SNS fan-out or EventBridge instead.</td></tr>
-        <tr><td class="topic">"Exact order" + "no duplicates"</td><td class="pick">SQS FIFO (message group ID)</td><td class="why">Standard queues are best-effort ordering, at-least-once. Only FIFO guarantees both.</td></tr>
-        <tr><td class="topic">"Real time" + "multiple consumers" + "replay"</td><td class="pick">Kinesis Data Streams</td><td class="why">SQS deletes on consume &mdash; no replay, no fan-out. That's the discriminator.</td></tr>
-        <tr><td class="topic">"Near real time" + "deliver to S3/Redshift" + "no management"</td><td class="pick">Kinesis Data Firehose</td><td class="why">Firehose = delivery, zero shards. Streams = you manage shards but get replay.</td></tr>
-        <tr><td class="topic">"Query data in S3 with SQL", "occasional / ad-hoc"</td><td class="pick">Athena</td><td class="why">Redshift is the trap: a 24/7 cluster for weekly queries is mostly paid idle time.</td></tr>
-        <tr><td class="topic">"Petabyte data warehouse", "complex joins", "BI"</td><td class="pick">Redshift</td><td class="why">Athena is the trap here &mdash; fine for ad-hoc, not for sustained heavy warehouse workloads.</td></tr>
-        <tr><td class="topic">"Microsecond" reads</td><td class="pick">DAX (DynamoDB) or ElastiCache</td><td class="why">DynamoDB alone is <em>single-digit millisecond</em>. Microsecond always means a cache.</td></tr>
-        <tr><td class="topic">"Millisecond" + key-value + massive scale</td><td class="pick">DynamoDB</td><td class="why">If it says "flexible schema" or "serverless database", even stronger.</td></tr>
-        <tr><td class="topic">"Multi-Region" + <em>writes</em> in each Region</td><td class="pick">DynamoDB global tables / Aurora Global Database</td><td class="why">Read replicas only serve reads. "Active-active writes" rules them out.</td></tr>
-        <tr><td class="topic">"Survive an AZ failure" (single Region)</td><td class="pick">Multi-AZ</td><td class="why">Multi-AZ = availability, automatic failover. Read replicas = performance. Don't swap them.</td></tr>
-        <tr><td class="topic">"Survive a Region failure"</td><td class="pick">Cross-Region replica / global database / CRR</td><td class="why">Multi-AZ is the trap &mdash; it never crosses Regions.</td></tr>
-        <tr><td class="topic">"Shared file system", "many instances", "POSIX"</td><td class="pick">EFS</td><td class="why">EBS is single-AZ, single-instance (Multi-Attach is a narrow exception). S3 is not POSIX.</td></tr>
-        <tr><td class="topic">"SMB" / "Windows" / "Active Directory" shares</td><td class="pick">FSx for Windows File Server</td><td class="why">EFS is NFS/Linux only. This is a pure keyword match.</td></tr>
-        <tr><td class="topic">"HPC" / "machine learning training" + file system</td><td class="pick">FSx for Lustre</td><td class="why">Links to S3 natively. Hundreds of GB/s.</td></tr>
-        <tr><td class="topic">"Archive", "7 years", "retrieval in hours is fine"</td><td class="pick">Glacier Deep Archive</td><td class="why">Cheapest storage on AWS. If retrieval must be <em>instant</em>, use Glacier Instant Retrieval instead.</td></tr>
-        <tr><td class="topic">"Unknown / changing access patterns"</td><td class="pick">S3 Intelligent-Tiering</td><td class="why">The only class with no retrieval fee that auto-tiers. Standard-IA is the trap (retrieval fees bite).</td></tr>
-        <tr><td class="topic">"Cannot be deleted by anyone, including root"</td><td class="pick">S3 Object Lock &mdash; compliance mode</td><td class="why">Governance mode is the trap: privileged users can bypass it.</td></tr>
-        <tr><td class="topic">"Private connection to an AWS service from a private subnet"</td><td class="pick">VPC endpoint (gateway for S3/DynamoDB, interface for everything else)</td><td class="why">NAT gateway "works" but costs per GB and uses the internet &mdash; wrong when they say private or cheapest.</td></tr>
-        <tr><td class="topic">"Expose my service to many customer VPCs"</td><td class="pick">PrivateLink / endpoint service</td><td class="why">Peering doesn't scale and breaks on overlapping CIDRs.</td></tr>
-        <tr><td class="topic">"Hundreds of VPCs", "mesh is unmanageable"</td><td class="pick">Transit Gateway</td><td class="why">Hub-and-spoke replaces the O(n&sup2;) peering mesh.</td></tr>
-        <tr><td class="topic">"Static IP" + "UDP / non-HTTP" + global</td><td class="pick">Global Accelerator</td><td class="why">CloudFront is HTTP(S) caching only. GA = static anycast IPs, any TCP/UDP.</td></tr>
-        <tr><td class="topic">"Cache content globally", "reduce latency for downloads"</td><td class="pick">CloudFront</td><td class="why">If it's <em>uploads</em> that are slow &rarr; S3 Transfer Acceleration instead.</td></tr>
-        <tr><td class="topic">"Rotate credentials automatically"</td><td class="pick">Secrets Manager</td><td class="why">Parameter Store stores secrets but has no built-in rotation. That's the whole difference.</td></tr>
-        <tr><td class="topic">"Audit every use of the encryption key"</td><td class="pick">SSE-KMS with a customer managed key</td><td class="why">SSE-S3 key usage isn't individually logged in CloudTrail.</td></tr>
-        <tr><td class="topic">"We must hold the keys in our own HSM"</td><td class="pick">CloudHSM</td><td class="why">KMS is multi-tenant and AWS-operated. "Single-tenant / FIPS 140-2 Level 3 / we control" = CloudHSM.</td></tr>
-        <tr><td class="topic">"Find PII / sensitive data in S3"</td><td class="pick">Macie</td><td class="why">GuardDuty = threats, Inspector = vulnerabilities, Macie = data classification.</td></tr>
-        <tr><td class="topic">"Who made this API call?"</td><td class="pick">CloudTrail</td><td class="why">Config = resource state over time. CloudWatch = metrics/logs. CloudTrail = identity + action.</td></tr>
-        <tr><td class="topic">"Is this resource compliant, and auto-fix it"</td><td class="pick">AWS Config rules + remediation</td><td class="why">Detection and remediation of <em>configuration</em>, not threats.</td></tr>
-        <tr><td class="topic">"Network bandwidth can't finish the transfer in time"</td><td class="pick">Snowball / Snow family</td><td class="why">Do the arithmetic (section 6). If it's weeks over the wire, ship a device.</td></tr>
-        <tr><td class="topic">"Migrate database with almost no downtime"</td><td class="pick">DMS (+ SCT if the engine changes)</td><td class="why">CDC keeps the target in sync until cutover. Dump/restore is the trap.</td></tr>
-        <tr><td class="topic">"Lift and shift servers as-is"</td><td class="pick">Application Migration Service (MGN)</td><td class="why">DMS is databases only. MGN is whole servers &rarr; EC2.</td></tr>
-        <tr><td class="topic">"Keep using our on-prem backup software / NFS / SMB, store in AWS"</td><td class="pick">Storage Gateway (Tape / File / Volume)</td><td class="why">DataSync <em>moves</em> data once; Storage Gateway gives ongoing hybrid access.</td></tr>
-        <tr><td class="topic">"Copy NFS/SMB to AWS on a schedule, verified"</td><td class="pick">DataSync</td><td class="why">Purpose-built one-way/recurring transfer with integrity checks and throttling.</td></tr>
+        <tr><td class="topic">"Least operational overhead"</td><td class="pick">The serverless option</td><td class="why">"Self-managed on EC2" is wrong.</td></tr>
+        <tr><td class="topic">"Cheapest" + interruptible / batch</td><td class="pick">Spot</td><td class="why">Only if it can be retried.</td></tr>
+        <tr><td class="topic">"Decouple", "no lost orders"</td><td class="pick">SQS</td><td class="why">Several consumers each need a copy &rarr; SNS or EventBridge.</td></tr>
+        <tr><td class="topic">"Exact order", "no duplicates"</td><td class="pick">SQS FIFO</td><td class="why">Standard = best-effort order, at-least-once.</td></tr>
+        <tr><td class="topic">"Real time" + many consumers + replay</td><td class="pick">Kinesis Data Streams</td><td class="why">SQS deletes on consume &mdash; no replay.</td></tr>
+        <tr><td class="topic">"Deliver to S3", "no management"</td><td class="pick">Firehose</td><td class="why">Streams = you manage shards.</td></tr>
+        <tr><td class="topic">"SQL on S3", "ad-hoc"</td><td class="pick">Athena</td><td class="why">Redshift = paid idle time.</td></tr>
+        <tr><td class="topic">"Petabyte warehouse", "BI"</td><td class="pick">Redshift</td><td class="why">Athena too slow for sustained load.</td></tr>
+        <tr><td class="topic">"Microsecond"</td><td class="pick">DAX or ElastiCache</td><td class="why">DynamoDB alone is <em>milliseconds</em>.</td></tr>
+        <tr><td class="topic">"Millisecond", key-value, any scale</td><td class="pick">DynamoDB</td><td class="why">&mdash;</td></tr>
+        <tr><td class="topic">Multi-Region <em>writes</em></td><td class="pick">DynamoDB global tables / Aurora Global</td><td class="why">Read replicas serve reads only.</td></tr>
+        <tr><td class="topic">"Survive an AZ failure"</td><td class="pick">Multi-AZ</td><td class="why">Read replica ≠ availability.</td></tr>
+        <tr><td class="topic">"Survive a Region failure"</td><td class="pick">Cross-Region replica / CRR</td><td class="why">Multi-AZ never crosses Regions.</td></tr>
+        <tr><td class="topic">"Shared POSIX", many instances</td><td class="pick">EFS</td><td class="why">EBS is single-AZ, single-instance.</td></tr>
+        <tr><td class="topic">"SMB" / "Windows" / "AD"</td><td class="pick">FSx for Windows</td><td class="why">EFS is NFS/Linux only.</td></tr>
+        <tr><td class="topic">"HPC" / "ML training" file system</td><td class="pick">FSx for Lustre</td><td class="why">&mdash;</td></tr>
+        <tr><td class="topic">"Archive 7 years", hours OK</td><td class="pick">Glacier Deep Archive</td><td class="why">Need it instantly &rarr; Glacier Instant Retrieval.</td></tr>
+        <tr><td class="topic">"Unknown access pattern"</td><td class="pick">S3 Intelligent-Tiering</td><td class="why">Standard-IA charges retrieval fees.</td></tr>
+        <tr><td class="topic">"Nobody can delete, including root"</td><td class="pick">Object Lock, <em>compliance</em> mode</td><td class="why">Governance mode can be bypassed.</td></tr>
+        <tr><td class="topic">Private access to AWS service</td><td class="pick">VPC endpoint</td><td class="why">NAT works but costs per GB.</td></tr>
+        <tr><td class="topic">"Expose my service to many VPCs"</td><td class="pick">PrivateLink</td><td class="why">Peering breaks on overlapping CIDRs.</td></tr>
+        <tr><td class="topic">"Hundreds of VPCs"</td><td class="pick">Transit Gateway</td><td class="why">&mdash;</td></tr>
+        <tr><td class="topic">"Static IP" + UDP</td><td class="pick">Global Accelerator</td><td class="why">CloudFront is HTTP-only.</td></tr>
+        <tr><td class="topic">"Cache globally"</td><td class="pick">CloudFront</td><td class="why">Slow <em>uploads</em> &rarr; S3 Transfer Acceleration.</td></tr>
+        <tr><td class="topic">"Rotate credentials automatically"</td><td class="pick">Secrets Manager</td><td class="why">Parameter Store has no rotation.</td></tr>
+        <tr><td class="topic">"Audit key usage"</td><td class="pick">SSE-KMS, customer managed key</td><td class="why">SSE-S3 isn't logged per use.</td></tr>
+        <tr><td class="topic">"We hold the keys / FIPS 140-2 L3"</td><td class="pick">CloudHSM</td><td class="why">KMS is AWS-operated.</td></tr>
+        <tr><td class="topic">"Find PII in S3"</td><td class="pick">Macie</td><td class="why">GuardDuty = threats, Inspector = CVEs.</td></tr>
+        <tr><td class="topic">"Who called this API?"</td><td class="pick">CloudTrail</td><td class="why">Config = resource state, not identity.</td></tr>
+        <tr><td class="topic">"Compliant + auto-fix"</td><td class="pick">Config rules + remediation</td><td class="why">&mdash;</td></tr>
+        <tr><td class="topic">"Bandwidth can't finish in time"</td><td class="pick">Snowball</td><td class="why">Do the maths (section 5).</td></tr>
+        <tr><td class="topic">"Migrate DB, no downtime"</td><td class="pick">DMS (+ SCT if engine changes)</td><td class="why">Dump/restore = hours down.</td></tr>
+        <tr><td class="topic">"Lift and shift servers"</td><td class="pick">MGN</td><td class="why">DMS is databases only.</td></tr>
+        <tr><td class="topic">"Keep our NFS/SMB/tape software"</td><td class="pick">Storage Gateway</td><td class="why">DataSync moves once; SGW is ongoing.</td></tr>
       </tbody>
     </table>
 
-    <!-- ============================================ -->
-    <h2>2. Cost ladders &mdash; cheapest to priciest</h2>
-    <p class="section-note">This is the "what's cheapest, what's most expensive, when do I pick what" view you asked for. Memorise the <em>order</em> and the one-line reason you'd ever climb the ladder.</p>
-
+    <h2>2. Cost ladders</h2>
     <h3 class="cs-h3">Storage, per GB-month</h3>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Option</th><th class="cost">~$/GB-mo</th><th>Pick it when</th></tr></thead>
+      <thead><tr><th class="topic">Option</th><th class="cost">~$/GB</th><th>Pick when</th></tr></thead>
       <tbody>
-        <tr><td class="topic"><span class="pill cheap">1</span> S3 Glacier Deep Archive</td><td class="cost">$0.00099</td><td class="why">Compliance archive, 7&ndash;10 years, retrieval in 12&ndash;48 h is acceptable. Cheapest storage AWS sells.</td></tr>
-        <tr><td class="topic"><span class="pill cheap">2</span> S3 Glacier Flexible Retrieval</td><td class="cost">$0.0036</td><td class="why">Archive you might need back in minutes&ndash;hours (expedited 1&ndash;5 min, bulk 5&ndash;12 h).</td></tr>
-        <tr><td class="topic"><span class="pill cheap">3</span> S3 Glacier Instant Retrieval</td><td class="cost">$0.004</td><td class="why">Archive priced data but you need it back in <em>milliseconds</em>. Quarterly-access data.</td></tr>
-        <tr><td class="topic"><span class="pill cheap">4</span> S3 One Zone-IA</td><td class="cost">$0.010</td><td class="why">Infrequent + <em>reproducible</em> (thumbnails, secondary copies). One AZ only &mdash; loses data if that AZ is destroyed.</td></tr>
-        <tr><td class="topic"><span class="pill mid">5</span> S3 Standard-IA</td><td class="cost">$0.0125</td><td class="why">Infrequent but must not be lost. Beware the per-GB retrieval fee.</td></tr>
-        <tr><td class="topic"><span class="pill mid">6</span> EBS sc1 (Cold HDD)</td><td class="cost">$0.015</td><td class="why">Rarely touched sequential block data. Lowest-cost EBS.</td></tr>
-        <tr><td class="topic"><span class="pill mid">7</span> S3 Standard</td><td class="cost">$0.023</td><td class="why">Default. Frequently read, no retrieval fee, 11 nines durability.</td></tr>
-        <tr><td class="topic"><span class="pill mid">8</span> EBS st1 (Throughput HDD)</td><td class="cost">$0.045</td><td class="why">Big sequential throughput &mdash; logs, data warehouse scans. Not for boot volumes.</td></tr>
-        <tr><td class="topic"><span class="pill mid">9</span> EBS snapshots</td><td class="cost">$0.05</td><td class="why">Incremental. Archive tier drops to ~$0.0125 for long-term snapshot retention.</td></tr>
-        <tr><td class="topic"><span class="pill mid">10</span> EBS gp3</td><td class="cost">$0.08</td><td class="why">The sane default for block. 3,000 IOPS + 125 MB/s baseline included, tune independently of size.</td></tr>
-        <tr><td class="topic"><span class="pill mid">11</span> EBS gp2</td><td class="cost">$0.10</td><td class="why">Legacy. Costs more than gp3 and ties IOPS to volume size (3 IOPS/GB). gp3 is nearly always the better answer.</td></tr>
-        <tr><td class="topic"><span class="pill pricey">12</span> EBS io2 / io2 Block Express</td><td class="cost">$0.125 + IOPS</td><td class="why">Only when they state a big IOPS number (&gt;16,000) or need 99.999% volume durability.</td></tr>
-        <tr><td class="topic"><span class="pill pricey">13</span> FSx for Windows / Lustre</td><td class="cost">~$0.13&ndash;0.14</td><td class="why">You need SMB+AD, or HPC-grade parallel throughput. Never the "cheap" answer.</td></tr>
-        <tr><td class="topic"><span class="pill pricey">14</span> EFS Standard</td><td class="cost">$0.30</td><td class="why">Shared POSIX across AZs. ~13&times; S3 Standard &mdash; if the question says "cheapest" and the data is objects, EFS is the trap.</td></tr>
+        <tr><td class="topic"><span class="pill cheap">1</span> Glacier Deep Archive</td><td class="cost">$0.00099</td><td class="why">Compliance archive, 12&ndash;48 h retrieval OK.</td></tr>
+        <tr><td class="topic"><span class="pill cheap">2</span> Glacier Flexible Retrieval</td><td class="cost">$0.0036</td><td class="why">Backups; minutes to 12 h.</td></tr>
+        <tr><td class="topic"><span class="pill cheap">3</span> Glacier Instant Retrieval</td><td class="cost">$0.004</td><td class="why">Archive price, millisecond access. Quarterly use.</td></tr>
+        <tr><td class="topic"><span class="pill cheap">4</span> S3 One Zone-IA</td><td class="cost">$0.010</td><td class="why">Reproducible data only &mdash; one AZ.</td></tr>
+        <tr><td class="topic"><span class="pill mid">5</span> S3 Standard-IA</td><td class="cost">$0.0125</td><td class="why">Infrequent, must not lose. Retrieval fee.</td></tr>
+        <tr><td class="topic"><span class="pill mid">6</span> EBS sc1</td><td class="cost">$0.015</td><td class="why">Cold sequential block. Cheapest EBS.</td></tr>
+        <tr><td class="topic"><span class="pill mid">7</span> S3 Standard</td><td class="cost">$0.023</td><td class="why">Default. No retrieval fee.</td></tr>
+        <tr><td class="topic"><span class="pill mid">8</span> EBS st1</td><td class="cost">$0.045</td><td class="why">Big sequential throughput. Not bootable.</td></tr>
+        <tr><td class="topic"><span class="pill mid">9</span> EBS gp3</td><td class="cost">$0.08</td><td class="why">Default block. 3,000 IOPS included, tune separately from size.</td></tr>
+        <tr><td class="topic"><span class="pill mid">10</span> EBS gp2</td><td class="cost">$0.10</td><td class="why">Legacy: costs more, IOPS tied to size. gp3 wins.</td></tr>
+        <tr><td class="topic"><span class="pill pricey">11</span> EBS io2</td><td class="cost">$0.125 + IOPS</td><td class="why">Only above 16,000 IOPS.</td></tr>
+        <tr><td class="topic"><span class="pill pricey">12</span> FSx</td><td class="cost">~$0.13</td><td class="why">SMB+AD, or HPC. Never the cheap answer.</td></tr>
+        <tr><td class="topic"><span class="pill pricey">13</span> EFS Standard</td><td class="cost">$0.30</td><td class="why">Shared POSIX. ~13&times; S3.</td></tr>
       </tbody>
     </table>
-    <div class="callout tip"><p><strong>Shortcut:</strong> object storage &lt; block storage &lt; file storage, at every tier. If a question offers S3 and EFS for the same data and mentions cost, S3 wins unless it explicitly needs a POSIX mount.</p></div>
+    <div class="callout tip"><p><strong>Object &lt; block &lt; file</strong>, at every tier. S3 vs EFS for the same data + "cost" &rarr; S3, unless it needs a POSIX mount.</p></div>
 
-    <h3 class="cs-h3">EC2 purchasing options</h3>
+    <h3 class="cs-h3">EC2 purchasing</h3>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Option</th><th class="cost">Discount</th><th>Pick it when</th></tr></thead>
+      <thead><tr><th class="topic">Option</th><th class="cost">Saves</th><th>Pick when</th></tr></thead>
       <tbody>
-        <tr><td class="topic"><span class="pill cheap">1</span> Spot</td><td class="cost">up to 90%</td><td class="why">Interruptible, stateless, retryable: batch, CI, rendering, big data workers. 2-minute interruption notice.</td></tr>
-        <tr><td class="topic"><span class="pill cheap">2</span> Reserved &mdash; Standard, 3 yr, all upfront</td><td class="cost">up to 72%</td><td class="why">Steady state, family locked for 3 years. Deepest committed discount.</td></tr>
-        <tr><td class="topic"><span class="pill cheap">2</span> EC2 Instance Savings Plan</td><td class="cost">up to 72%</td><td class="why">Same depth as Standard RI, but you commit to $/hour in one family+Region rather than to instances.</td></tr>
-        <tr><td class="topic"><span class="pill mid">3</span> Compute Savings Plan</td><td class="cost">up to 66%</td><td class="why"><strong>The usual right answer.</strong> Applies across any family, size, Region, and to Fargate and Lambda. Maximum flexibility.</td></tr>
-        <tr><td class="topic"><span class="pill mid">4</span> Reserved &mdash; Convertible</td><td class="cost">up to 54%</td><td class="why">Committed but you can change family/OS/tenancy mid-term.</td></tr>
-        <tr><td class="topic"><span class="pill mid">5</span> On-Demand</td><td class="cost">baseline</td><td class="why">Short, unpredictable, can't be interrupted, no commitment possible.</td></tr>
-        <tr><td class="topic"><span class="pill pricey">6</span> Dedicated Instances</td><td class="cost">premium</td><td class="why">Hardware isolated from other accounts. Compliance wording.</td></tr>
-        <tr><td class="topic"><span class="pill pricey">7</span> Dedicated Hosts</td><td class="cost">highest</td><td class="why">You need visibility of physical sockets/cores &mdash; i.e. <strong>BYOL licensing</strong> (Windows Server, Oracle). That phrase is the only reason to pick it.</td></tr>
+        <tr><td class="topic"><span class="pill cheap">1</span> Spot</td><td class="cost">~90%</td><td class="why">Interruptible, retryable. 2-min notice.</td></tr>
+        <tr><td class="topic"><span class="pill cheap">2</span> Standard RI / EC2 Instance SP</td><td class="cost">~72%</td><td class="why">Steady state, family locked.</td></tr>
+        <tr><td class="topic"><span class="pill mid">3</span> Compute Savings Plan</td><td class="cost">~66%</td><td class="why"><strong>Usual right answer.</strong> Any family, Region, plus Fargate and Lambda.</td></tr>
+        <tr><td class="topic"><span class="pill mid">4</span> Convertible RI</td><td class="cost">~54%</td><td class="why">Committed but can change family.</td></tr>
+        <tr><td class="topic"><span class="pill mid">5</span> On-Demand</td><td class="cost">&mdash;</td><td class="why">Short, unpredictable, uninterruptible.</td></tr>
+        <tr><td class="topic"><span class="pill pricey">6</span> Dedicated Hosts</td><td class="cost">most</td><td class="why">Only for <strong>BYOL licensing</strong>.</td></tr>
       </tbody>
     </table>
-    <div class="callout"><p><span class="pill trap">Trap</span> <strong>On-Demand Capacity Reservations</strong> guarantee capacity in an AZ but give <em>zero</em> discount. If the question wants savings, they're wrong; if it wants guaranteed capacity for a launch event, they're right.</p></div>
+    <div class="callout"><p><span class="pill trap">Trap</span> <strong>Capacity Reservations</strong> guarantee capacity, discount nothing.</p></div>
 
-    <h3 class="cs-h3">Data transfer &mdash; where the surprise bills come from</h3>
+    <h3 class="cs-h3">Data transfer</h3>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Path</th><th class="cost">~Cost</th><th>Note</th></tr></thead>
+      <thead><tr><th class="topic">Path</th><th class="cost">Cost</th><th>Note</th></tr></thead>
       <tbody>
-        <tr><td class="topic">Inbound from internet</td><td class="cost">free</td><td class="why">Ingest is always free. Never the answer to "reduce cost".</td></tr>
-        <tr><td class="topic">Same AZ, private IPs</td><td class="cost">free</td><td class="why">Use private IPs/endpoints. Traffic via public IPs can incur charges even in-AZ.</td></tr>
-        <tr><td class="topic">S3 &rarr; CloudFront origin fetch</td><td class="cost">free</td><td class="why">Big one: fronting S3 with CloudFront cuts both latency <em>and</em> egress cost.</td></tr>
-        <tr><td class="topic">Gateway VPC endpoint (S3, DynamoDB)</td><td class="cost">free</td><td class="why">No hourly, no per-GB. Always the cost answer vs NAT for S3 traffic.</td></tr>
-        <tr><td class="topic">Cross-AZ</td><td class="cost">$0.01/GB each way</td><td class="why">Chatty cross-AZ tiers quietly double this. A real design consideration.</td></tr>
-        <tr><td class="topic">Interface VPC endpoint</td><td class="cost">~$0.01/hr/AZ + $0.01/GB</td><td class="why">Not free, unlike gateway endpoints &mdash; but still beats NAT for AWS-service traffic.</td></tr>
-        <tr><td class="topic">Cross-Region</td><td class="cost">~$0.02/GB</td><td class="why">Replication and global databases cost real money at volume.</td></tr>
-        <tr><td class="topic">NAT Gateway</td><td class="cost">$0.045/hr + $0.045/GB</td><td class="why"><span class="pill trap">Trap</span> The classic "why is our bill huge" scenario. Terabytes to S3 through NAT &rarr; replace with a gateway endpoint.</td></tr>
-        <tr><td class="topic">CloudFront &rarr; internet</td><td class="cost">~$0.085/GB</td><td class="why">Slightly cheaper than raw EC2/S3 egress, plus caching reduces total volume.</td></tr>
-        <tr><td class="topic">EC2/S3 &rarr; internet</td><td class="cost">~$0.09/GB</td><td class="why">The expensive default. First 100 GB/month is free.</td></tr>
+        <tr><td class="topic">Inbound from internet</td><td class="cost">free</td><td class="why">Never the cost answer.</td></tr>
+        <tr><td class="topic">Same AZ, private IP</td><td class="cost">free</td><td class="why">Public IPs can still charge.</td></tr>
+        <tr><td class="topic">S3 &rarr; CloudFront</td><td class="cost">free</td><td class="why">Fronting S3 cuts latency <em>and</em> egress.</td></tr>
+        <tr><td class="topic">Gateway endpoint (S3, DynamoDB)</td><td class="cost">free</td><td class="why">Always beats NAT for S3.</td></tr>
+        <tr><td class="topic">Cross-AZ</td><td class="cost">$0.01/GB each way</td><td class="why">Chatty tiers double it.</td></tr>
+        <tr><td class="topic">Cross-Region</td><td class="cost">~$0.02/GB</td><td class="why">Replication costs real money.</td></tr>
+        <tr><td class="topic">NAT Gateway</td><td class="cost">$0.045/hr + $0.045/GB</td><td class="why"><span class="pill trap">Trap</span> The "why is our bill huge" scenario.</td></tr>
+        <tr><td class="topic">Out to internet</td><td class="cost">~$0.09/GB</td><td class="why">The expensive default.</td></tr>
       </tbody>
     </table>
 
-    <!-- ============================================ -->
-    <h2>3. S3 storage classes in detail</h2>
-    <p class="section-note">The single most-tested table on the exam. The minimum-duration column is what turns a "cheaper" class into a more expensive one.</p>
+    <h2>3. S3 classes</h2>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Class</th><th class="cost">$/GB-mo</th><th class="num">Min days</th><th class="num">AZs</th><th>Retrieval &amp; when to choose</th></tr></thead>
+      <thead><tr><th class="topic">Class</th><th class="cost">$/GB</th><th class="num">Min days</th><th class="num">AZs</th><th>Retrieval</th></tr></thead>
       <tbody>
-        <tr><td class="topic">Standard</td><td class="cost">$0.023</td><td class="num">&mdash;</td><td class="num">&ge;3</td><td class="why">Instant, no retrieval fee. Active data, default landing zone.</td></tr>
-        <tr><td class="topic">Intelligent-Tiering</td><td class="cost">$0.023 &rarr; $0.0036</td><td class="num">&mdash;</td><td class="num">&ge;3</td><td class="why">Instant. Auto-moves between tiers, small monitoring fee per object, <strong>no retrieval fees</strong>. The answer for "unknown or changing access patterns". Monitoring fee makes it a poor fit for millions of tiny objects.</td></tr>
-        <tr><td class="topic">Standard-IA</td><td class="cost">$0.0125</td><td class="num">30</td><td class="num">&ge;3</td><td class="why">Instant, but pay per GB retrieved. Known-infrequent, must-not-lose data.</td></tr>
-        <tr><td class="topic">One Zone-IA</td><td class="cost">$0.010</td><td class="num">30</td><td class="num">1</td><td class="why">~20% cheaper than Standard-IA, single AZ. Only for data you can regenerate.</td></tr>
-        <tr><td class="topic">Glacier Instant Retrieval</td><td class="cost">$0.004</td><td class="num">90</td><td class="num">&ge;3</td><td class="why">Milliseconds, archive pricing. Accessed ~quarterly. Medical images, media archives.</td></tr>
-        <tr><td class="topic">Glacier Flexible Retrieval</td><td class="cost">$0.0036</td><td class="num">90</td><td class="num">&ge;3</td><td class="why">Expedited 1&ndash;5 min / Standard 3&ndash;5 h / Bulk 5&ndash;12 h (bulk free). Backups you rarely restore.</td></tr>
-        <tr><td class="topic">Glacier Deep Archive</td><td class="cost">$0.00099</td><td class="num">180</td><td class="num">&ge;3</td><td class="why">Standard 12 h / Bulk 48 h. Regulatory retention, 7&ndash;10 years. Cheapest possible.</td></tr>
+        <tr><td class="topic">Standard</td><td class="cost">$0.023</td><td class="num">&mdash;</td><td class="num">3+</td><td class="why">Instant, no fee. Default.</td></tr>
+        <tr><td class="topic">Intelligent-Tiering</td><td class="cost">auto</td><td class="num">&mdash;</td><td class="num">3+</td><td class="why">Instant, <strong>no retrieval fee</strong>, small per-object monitoring fee. For unknown patterns.</td></tr>
+        <tr><td class="topic">Standard-IA</td><td class="cost">$0.0125</td><td class="num">30</td><td class="num">3+</td><td class="why">Instant + per-GB fee.</td></tr>
+        <tr><td class="topic">One Zone-IA</td><td class="cost">$0.010</td><td class="num">30</td><td class="num">1</td><td class="why">Same, single AZ. Regenerable data.</td></tr>
+        <tr><td class="topic">Glacier Instant</td><td class="cost">$0.004</td><td class="num">90</td><td class="num">3+</td><td class="why">Milliseconds.</td></tr>
+        <tr><td class="topic">Glacier Flexible</td><td class="cost">$0.0036</td><td class="num">90</td><td class="num">3+</td><td class="why">1&ndash;5 min to 12 h.</td></tr>
+        <tr><td class="topic">Deep Archive</td><td class="cost">$0.00099</td><td class="num">180</td><td class="num">3+</td><td class="why">12&ndash;48 h. Cheapest possible.</td></tr>
       </tbody>
     </table>
-    <div class="callout"><p><span class="pill trap">Trap</span> <strong>Minimum billable object size is 128 KB</strong> for the IA and Glacier classes, and early deletion is charged for the full minimum duration. Lifecycling millions of small log files to Glacier can cost <em>more</em> than leaving them in Standard. Also: all classes share the same 11 nines durability &mdash; One Zone-IA differs in <em>availability</em> and AZ blast radius, not durability math.</p></div>
-    <div class="callout tip"><p><strong>Typical lifecycle answer:</strong> Standard &rarr; Standard-IA at 30 days &rarr; Glacier Flexible/Deep Archive at 90 days &rarr; expire. And <strong>Object Lock compliance mode</strong> (WORM, not even root can delete) is the answer whenever regulators are mentioned.</p></div>
+    <div class="callout"><p><span class="pill trap">Trap</span> Min billable object <strong>128 KB</strong> and early deletion bills the full minimum. Glacier can cost <em>more</em> for small or short-lived objects. All classes share 11 nines durability &mdash; One Zone differs in blast radius, not durability.</p></div>
+    <div class="callout tip"><p><strong>Typical answer:</strong> Standard &rarr; Standard-IA at 30d &rarr; Glacier at 90d &rarr; expire. Regulators mentioned &rarr; <strong>Object Lock compliance mode</strong>.</p></div>
 
-    <!-- ============================================ -->
-    <h2>4. Databases &mdash; which one, and what it costs you</h2>
-    <p class="section-note">Exam questions are decided by one adjective: relational / key-value / graph / ledger / time-series / warehouse / in-memory. Match the noun, then check the scaling adjective.</p>
+    <h2>4. Databases</h2>
+    <p class="section-note">Match the noun first: relational / key-value / graph / ledger / time-series / warehouse / in-memory.</p>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Service</th><th class="pick">Use when</th><th>Cost &amp; gotchas</th></tr></thead>
+      <thead><tr><th class="topic">Service</th><th class="pick">Use for</th><th>Key fact</th></tr></thead>
       <tbody>
-        <tr><td class="topic">RDS (MySQL, PostgreSQL, MariaDB, Oracle, SQL Server, Db2)</td><td class="pick">Standard relational, lift-and-shift of an existing engine</td><td class="why">Pay per instance-hour + storage. <strong>Multi-AZ = failover, not reads.</strong> Read replicas = reads, up to 15, manual promotion, cross-Region supported.</td></tr>
-        <tr><td class="topic">Aurora (MySQL/PostgreSQL compatible)</td><td class="pick">You want RDS but faster and more resilient</td><td class="why">~20% more than RDS but 5&times;/3&times; throughput. 6 copies across 3 AZs, storage auto-grows to 128 TiB, up to 15 low-lag replicas, reader endpoint load-balances automatically.</td></tr>
-        <tr><td class="topic">Aurora Serverless v2</td><td class="pick">Spiky or unpredictable load, near-zero at night</td><td class="why">Bills per ACU-second, scales in seconds. The answer for "don't manage capacity, pay for what you use" on a relational DB.</td></tr>
-        <tr><td class="topic">Aurora Global Database</td><td class="pick">RPO ~1 s, RTO &lt;1 min across Regions</td><td class="why">Sub-second cross-Region replication, up to 5 secondaries. The only relational answer that meets aggressive cross-Region RPO/RTO.</td></tr>
-        <tr><td class="topic">DynamoDB</td><td class="pick">Key-value, serverless, any scale, flexible schema</td><td class="why">On-demand (spiky, pay per request) vs provisioned + auto scaling (predictable, cheaper). Single-digit ms. Free features worth knowing: <strong>TTL</strong> (auto-expire rows), <strong>Streams</strong> (change capture), PITR.</td></tr>
-        <tr><td class="topic">DynamoDB global tables</td><td class="pick">Multi-Region <em>active-active writes</em></td><td class="why">Multi-active. If the question says users write in every Region, this or Aurora Global is the answer.</td></tr>
-        <tr><td class="topic">DAX</td><td class="pick">Microsecond reads on DynamoDB, minimal code change</td><td class="why">API-compatible cache. Read-heavy only; doesn't help writes.</td></tr>
-        <tr><td class="topic">ElastiCache &mdash; Redis</td><td class="pick">Cache + persistence, replication, pub/sub, leaderboards, session store</td><td class="why">Multi-AZ with failover. Pick Redis whenever the question needs anything beyond a plain cache.</td></tr>
-        <tr><td class="topic">ElastiCache &mdash; Memcached</td><td class="pick">Simple, multi-threaded, sharded cache, no persistence</td><td class="why">No replication, no failover. If they mention durability or replicas, Memcached is the trap.</td></tr>
-        <tr><td class="topic">MemoryDB for Redis</td><td class="pick">In-memory speed as the <em>primary durable</em> database</td><td class="why">Multi-AZ transaction log. Rare but appears as the "durable Redis" answer.</td></tr>
-        <tr><td class="topic">Redshift</td><td class="pick">Petabyte OLAP warehouse, complex joins, BI</td><td class="why">Cluster = 24/7 cost; <strong>Redshift Serverless</strong> for intermittent. <strong>Spectrum</strong> queries S3 without loading.</td></tr>
-        <tr><td class="topic">DocumentDB</td><td class="pick">MongoDB workload</td><td class="why">Pure keyword match on "MongoDB-compatible".</td></tr>
-        <tr><td class="topic">Neptune</td><td class="pick">Graph &mdash; social networks, fraud rings, recommendations, "relationships"</td><td class="why">Keyword: "highly connected data", "traverse relationships".</td></tr>
-        <tr><td class="topic">Keyspaces</td><td class="pick">Apache Cassandra workload</td><td class="why">Serverless Cassandra. Keyword match.</td></tr>
-        <tr><td class="topic">Timestream</td><td class="pick">Time-series &mdash; IoT sensors, metrics over time</td><td class="why">Purpose-built, auto-tiers recent vs historical data.</td></tr>
-        <tr><td class="topic">QLDB</td><td class="pick">Immutable, cryptographically verifiable ledger</td><td class="why">Keyword: "immutable", "verifiable history", "central trusted authority". <em>AWS has wound this service down, but it still appears in the SAA-C03 pool &mdash; recognise it, don't plan on it.</em></td></tr>
+        <tr><td class="topic">RDS</td><td class="pick">Standard relational</td><td class="why">Multi-AZ = failover only. Read replicas = reads, up to 15, manual promotion.</td></tr>
+        <tr><td class="topic">Aurora</td><td class="pick">RDS but faster and tougher</td><td class="why">6 copies / 3 AZs, storage auto-grows to 128 TiB, reader endpoint load-balances.</td></tr>
+        <tr><td class="topic">Aurora Serverless v2</td><td class="pick">Spiky relational load</td><td class="why">Per-ACU-second billing, scales in seconds.</td></tr>
+        <tr><td class="topic">Aurora Global</td><td class="pick">RPO ~1s, RTO &lt;1min cross-Region</td><td class="why">Only relational answer for aggressive cross-Region targets.</td></tr>
+        <tr><td class="topic">DynamoDB</td><td class="pick">Key-value, any scale</td><td class="why">On-demand (spiky) vs provisioned (predictable, cheaper). Free: TTL, Streams, PITR.</td></tr>
+        <tr><td class="topic">DynamoDB global tables</td><td class="pick">Multi-Region active-active</td><td class="why">Writes in every Region.</td></tr>
+        <tr><td class="topic">DAX</td><td class="pick">Microsecond DynamoDB reads</td><td class="why">API-compatible. Reads only.</td></tr>
+        <tr><td class="topic">ElastiCache Redis</td><td class="pick">Cache + persistence, replication, sessions</td><td class="why">Multi-AZ failover. Default Redis choice.</td></tr>
+        <tr><td class="topic">ElastiCache Memcached</td><td class="pick">Plain sharded cache</td><td class="why">No persistence, no failover.</td></tr>
+        <tr><td class="topic">Redshift</td><td class="pick">Petabyte OLAP + BI</td><td class="why">Serverless for intermittent; Spectrum queries S3 in place.</td></tr>
+        <tr><td class="topic">DocumentDB / Neptune / Keyspaces / Timestream</td><td class="pick">Mongo / graph / Cassandra / time-series</td><td class="why">Pure keyword matches.</td></tr>
+        <tr><td class="topic">QLDB</td><td class="pick">Immutable verifiable ledger</td><td class="why">AWS wound it down; still in the question pool.</td></tr>
       </tbody>
     </table>
-    <div class="callout tip"><p><strong>Read replica vs Multi-AZ vs global</strong> &mdash; the most repeated distinction on the whole exam: <strong>Multi-AZ</strong> = synchronous standby, automatic failover, <em>not readable</em>, survives AZ loss. <strong>Read replica</strong> = asynchronous, readable, manual promotion, scales reads. <strong>Global/cross-Region</strong> = survives Region loss.</p></div>
+    <div class="callout tip"><p><strong>Most repeated distinction on the exam.</strong> Multi-AZ = sync standby, auto failover, not readable. Read replica = async, readable, manual promotion. Global = survives Region loss.</p></div>
 
-    <!-- ============================================ -->
     <h2>5. Migration &amp; transfer</h2>
-    <p class="section-note">One of your two focus areas. Every question here reduces to: how much data, how much bandwidth, how much downtime, and does the engine change.</p>
+    <p class="section-note">Every question reduces to: how much data, how much bandwidth, how much downtime, does the engine change.</p>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Service</th><th class="pick">Moves what</th><th>Choose it when</th></tr></thead>
+      <thead><tr><th class="topic">Service</th><th class="pick">Moves</th><th>Choose when</th></tr></thead>
       <tbody>
-        <tr><td class="topic">DMS</td><td class="pick">Databases</td><td class="why">Near-zero downtime via CDC (ongoing replication until cutover). Works homogeneous and, with SCT, heterogeneous. Source stays online throughout.</td></tr>
-        <tr><td class="topic">SCT (Schema Conversion Tool)</td><td class="pick">Schema + stored procedures</td><td class="why">Only needed when the <em>engine changes</em> (Oracle &rarr; PostgreSQL). Same engine &rarr; DMS alone. This pairing is a guaranteed question.</td></tr>
-        <tr><td class="topic">Application Migration Service (MGN)</td><td class="pick">Whole servers &rarr; EC2</td><td class="why">Lift-and-shift/rehost with continuous block replication, short cutover. The default "rehost 200 VMs" answer.</td></tr>
-        <tr><td class="topic">Elastic Disaster Recovery (DRS)</td><td class="pick">Servers, for DR</td><td class="why">Same tech as MGN but for ongoing DR rather than one-time migration.</td></tr>
-        <tr><td class="topic">DataSync</td><td class="pick">Files: NFS, SMB, HDFS, object storage</td><td class="why">Online, scheduled, throttled, integrity-verified, incremental. Up to ~10 Gbps per agent. The answer when the network <em>can</em> handle it.</td></tr>
-        <tr><td class="topic">Snow family</td><td class="pick">Bulk offline</td><td class="why">The answer when the network <em>can't</em>. See the arithmetic below.</td></tr>
-        <tr><td class="topic">Storage Gateway &mdash; File</td><td class="pick">Ongoing NFS/SMB access backed by S3</td><td class="why">Local cache for hot files. "Running out of space on the file server but keep low-latency access."</td></tr>
-        <tr><td class="topic">Storage Gateway &mdash; Volume</td><td class="pick">iSCSI block volumes</td><td class="why">Cached (hot local, full copy in AWS) vs Stored (full copy local, async backup to AWS).</td></tr>
-        <tr><td class="topic">Storage Gateway &mdash; Tape</td><td class="pick">Virtual tape library</td><td class="why">Keyword: existing backup software that expects tapes. Backs to S3/Glacier.</td></tr>
-        <tr><td class="topic">Transfer Family</td><td class="pick">SFTP / FTPS / FTP into S3 or EFS</td><td class="why">Partners keep their existing SFTP clients; you run no servers.</td></tr>
-        <tr><td class="topic">Application Discovery Service</td><td class="pick">Inventory + utilization, pre-migration</td><td class="why">Right-size <em>before</em> you move. Compute Optimizer does the same job for resources already in AWS.</td></tr>
-        <tr><td class="topic">Migration Hub</td><td class="pick">Tracking dashboard</td><td class="why">Single pane across migration tools. Never the technical answer, occasionally the "track progress" answer.</td></tr>
-        <tr><td class="topic">AWS Backup</td><td class="pick">Centralized backup policy</td><td class="why">One policy across EBS, RDS, DynamoDB, EFS, FSx, with retention and cross-Region copy. The answer for "central, tag-based, many services".</td></tr>
+        <tr><td class="topic">DMS</td><td class="pick">Databases</td><td class="why">CDC keeps target in sync &rarr; near-zero downtime.</td></tr>
+        <tr><td class="topic">SCT</td><td class="pick">Schema</td><td class="why">Only when the <em>engine changes</em>. Same engine &rarr; DMS alone.</td></tr>
+        <tr><td class="topic">MGN</td><td class="pick">Whole servers &rarr; EC2</td><td class="why">Default "rehost 200 VMs" answer.</td></tr>
+        <tr><td class="topic">Elastic Disaster Recovery</td><td class="pick">Servers, for DR</td><td class="why">Same tech as MGN, ongoing.</td></tr>
+        <tr><td class="topic">DataSync</td><td class="pick">NFS, SMB, HDFS, objects</td><td class="why">Online, scheduled, verified. When the network <em>can</em> cope.</td></tr>
+        <tr><td class="topic">Snow family</td><td class="pick">Bulk offline</td><td class="why">When the network <em>can't</em>.</td></tr>
+        <tr><td class="topic">Storage Gateway</td><td class="pick">Ongoing hybrid access</td><td class="why">File (NFS/SMB+cache), Volume (iSCSI), Tape (VTL for existing backup software).</td></tr>
+        <tr><td class="topic">Transfer Family</td><td class="pick">SFTP/FTPS into S3</td><td class="why">Partners keep their clients; you run no servers.</td></tr>
+        <tr><td class="topic">Application Discovery Service</td><td class="pick">Pre-migration inventory</td><td class="why">Right-size before moving. Compute Optimizer does it after.</td></tr>
+        <tr><td class="topic">AWS Backup</td><td class="pick">Central backup policy</td><td class="why">EBS, RDS, DynamoDB, EFS, FSx + cross-Region copy.</td></tr>
       </tbody>
     </table>
-
-    <h3 class="cs-h3">Snow family &amp; the "ship or stream?" arithmetic</h3>
     <div class="callout tip">
-      <p><strong>Mental formula:</strong> days &asymp; TB &divide; (10.8 &times; Gbps), at 100% line rate. Halve the link speed for realism.</p>
-      <p>So: 100 TB over 1 Gbps &asymp; <strong>9&ndash;12 days</strong>. 80 TB over 100 Mbps &asymp; <strong>~2.5 months</strong> &rarr; obviously Snowball. 500 TB over a 10 Gbps Direct Connect &asymp; <strong>~5 days</strong> &rarr; DataSync wins, no shipping needed.</p>
-      <p><strong>Rule of thumb the exam wants:</strong> if the wire takes more than about a week, ship a device.</p>
+      <p><strong>Ship or stream?</strong> days &asymp; TB &divide; (10.8 &times; Gbps). 100 TB over 1 Gbps &asymp; 10 days. 80 TB over 100 Mbps &asymp; 2.5 months &rarr; Snowball. 500 TB over 10 Gbps &asymp; 5 days &rarr; DataSync.</p>
+      <p><strong>Rule:</strong> more than a week on the wire &rarr; ship a device. Snowcone 8&ndash;14 TB &middot; Snowball Edge ~80 TB &middot; Snowmobile 100 PB (retired, still a distractor).</p>
     </div>
+
+    <h2>6. Analytics</h2>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Device</th><th class="cost">Capacity</th><th>Use</th></tr></thead>
+      <thead><tr><th class="topic">Service</th><th class="pick">Role</th><th>Discriminator</th></tr></thead>
       <tbody>
-        <tr><td class="topic">Snowcone</td><td class="cost">8 TB HDD / 14 TB SSD</td><td class="why">Smallest, rugged, portable &mdash; drones, vehicles, tight spaces. Can ship or use DataSync online.</td></tr>
-        <tr><td class="topic">Snowball Edge Storage Optimized</td><td class="cost">~80 TB usable</td><td class="why">The default bulk answer. Petabyte-scale by ordering multiple devices.</td></tr>
-        <tr><td class="topic">Snowball Edge Compute Optimized</td><td class="cost">~42 TB + GPU option</td><td class="why">Edge <em>processing</em> before/while shipping &mdash; disconnected sites doing ML or preprocessing.</td></tr>
-        <tr><td class="topic">Snowmobile</td><td class="cost">up to 100 PB</td><td class="why">Exabyte-scale, a literal truck. <em>Wound down by AWS, but still appears as a distractor</em> &mdash; only correct at extreme PB scale.</td></tr>
+        <tr><td class="topic">Athena</td><td class="pick">Serverless SQL on S3</td><td class="why">~$5/TB <strong>scanned</strong>. Parquet + compress + partition to cut cost &mdash; recurring question.</td></tr>
+        <tr><td class="topic">Glue</td><td class="pick">Serverless ETL + crawlers + Catalog</td><td class="why">"Discover schema, no servers."</td></tr>
+        <tr><td class="topic">EMR</td><td class="pick">Managed Hadoop/Spark</td><td class="why">Wrong whenever "ad-hoc" or "serverless" appears.</td></tr>
+        <tr><td class="topic">Kinesis Data Streams</td><td class="pick">Real-time, replay, many consumers</td><td class="why">You size shards. Throughput error &rarr; add shards.</td></tr>
+        <tr><td class="topic">Firehose</td><td class="pick">Delivery to S3/Redshift/OpenSearch</td><td class="why">No shards, optional Lambda transform.</td></tr>
+        <tr><td class="topic">Managed Flink</td><td class="pick">Analytics <em>on</em> a stream</td><td class="why">Windowed aggregation in flight.</td></tr>
+        <tr><td class="topic">MSK</td><td class="pick">Managed Kafka</td><td class="why">Only when they say Kafka.</td></tr>
+        <tr><td class="topic">OpenSearch</td><td class="pick">Log search + dashboards</td><td class="why">Interactive; Athena is batch.</td></tr>
+        <tr><td class="topic">QuickSight</td><td class="pick">BI dashboards</td><td class="why">Visualization layer, never storage.</td></tr>
+        <tr><td class="topic">Lake Formation</td><td class="pick">Lake permissions</td><td class="why">Column/row-level access control.</td></tr>
+        <tr><td class="topic">Step Functions</td><td class="pick">Workflow orchestration</td><td class="why">Durable state up to 1 year, retries, human approval.</td></tr>
       </tbody>
     </table>
 
-    <!-- ============================================ -->
-    <h2>6. Analytics &amp; data pipelines</h2>
-    <p class="section-note">Your other focus area. The discriminators are: real-time vs batch, managed vs self-managed, and how you're billed.</p>
+    <h2>7. Cost &amp; governance</h2>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Service</th><th class="pick">One-line role</th><th>Billing &amp; the discriminator</th></tr></thead>
+      <thead><tr><th class="topic">Tool</th><th class="pick">Answers</th><th>Discriminator</th></tr></thead>
       <tbody>
-        <tr><td class="topic">Athena</td><td class="pick">Serverless SQL directly on S3</td><td class="why">~$5 per TB <strong>scanned</strong>. Cut cost by converting to Parquet/ORC, compressing, and partitioning &mdash; that exact fix is a recurring question.</td></tr>
-        <tr><td class="topic">Glue</td><td class="pick">Serverless ETL + crawlers + Data Catalog</td><td class="why">Crawlers infer schema; the Catalog is what Athena/Redshift Spectrum/EMR query against. "Discover schema, no servers" = Glue.</td></tr>
-        <tr><td class="topic">Glue DataBrew</td><td class="pick">Visual data prep, no code</td><td class="why">For analysts rather than engineers.</td></tr>
-        <tr><td class="topic">EMR</td><td class="pick">Managed Hadoop / Spark / Hive clusters</td><td class="why">Heavy, long-running processing. Wrong answer whenever "ad-hoc" or "serverless" appears. Use Spot for task nodes to cut cost.</td></tr>
-        <tr><td class="topic">Kinesis Data Streams</td><td class="pick">Real-time ingest, multiple consumers, replay</td><td class="why">You manage shards (or use on-demand). Retention 24 h up to 365 days. <code>ProvisionedThroughputExceeded</code> &rarr; add shards.</td></tr>
-        <tr><td class="topic">Kinesis Data Firehose</td><td class="pick">Near-real-time <em>delivery</em> to S3/Redshift/OpenSearch/Splunk</td><td class="why">Fully managed, no shards, buffers, optional Lambda transform. "No infrastructure to manage" = Firehose, not Streams.</td></tr>
-        <tr><td class="topic">Managed Service for Apache Flink</td><td class="pick">SQL/Flink analytics <em>on</em> a stream</td><td class="why">Windowed aggregation in flight. (Formerly Kinesis Data Analytics.)</td></tr>
-        <tr><td class="topic">Amazon MSK</td><td class="pick">Managed Apache Kafka</td><td class="why">Answer when the question explicitly says Kafka or existing Kafka apps.</td></tr>
-        <tr><td class="topic">OpenSearch Service</td><td class="pick">Search + log analytics + dashboards</td><td class="why">Interactive log searching. Athena is batch SQL; OpenSearch is interactive full-text.</td></tr>
-        <tr><td class="topic">QuickSight</td><td class="pick">BI dashboards</td><td class="why">SPICE in-memory engine. The visualization layer, never the storage answer.</td></tr>
-        <tr><td class="topic">Lake Formation</td><td class="pick">Data lake setup + fine-grained permissions</td><td class="why">Column/row-level access control over a lake. "Centrally govern who sees which columns."</td></tr>
-        <tr><td class="topic">AWS Batch</td><td class="pick">Managed batch job scheduling</td><td class="why">Runs containers on ECS/Fargate/EC2, great with Spot. Not a data service per se but a common distractor for "batch".</td></tr>
-        <tr><td class="topic">Step Functions</td><td class="pick">Stateful workflow orchestration</td><td class="why">Standard workflows: up to 1 year, durable state, retries, human-approval waits. Express: high-volume, short.</td></tr>
-        <tr><td class="topic">Data Pipeline</td><td class="pick">Legacy orchestration</td><td class="why">Deprecated in favour of Step Functions / Glue / MWAA. Treat as a distractor.</td></tr>
+        <tr><td class="topic">Cost Explorer</td><td class="pick">"Where did it go?"</td><td class="why">Visualize + forecast by service/tag.</td></tr>
+        <tr><td class="topic">Budgets</td><td class="pick">"Warn me first"</td><td class="why">Actual <em>or forecast</em> thresholds. "Proactive" = Budgets.</td></tr>
+        <tr><td class="topic">Cost &amp; Usage Report</td><td class="pick">"Every line item"</td><td class="why">Most granular, to S3 + Athena.</td></tr>
+        <tr><td class="topic">Cost Anomaly Detection</td><td class="pick">"Odd spend"</td><td class="why">ML, no threshold to set.</td></tr>
+        <tr><td class="topic">Compute Optimizer</td><td class="pick">"What to resize"</td><td class="why">EC2, EBS, Lambda, Fargate.</td></tr>
+        <tr><td class="topic">Trusted Advisor</td><td class="pick">"Best practice?"</td><td class="why">5 pillars. <span class="pill trap">Trap</span> full checks need Business/Enterprise Support.</td></tr>
+        <tr><td class="topic">Cost allocation tags</td><td class="pick">"Which team?"</td><td class="why">Must be <em>activated</em> in billing first.</td></tr>
+        <tr><td class="topic">Organizations</td><td class="pick">"One bill, shared discounts"</td><td class="why">Pools usage across accounts.</td></tr>
+        <tr><td class="topic">SCPs</td><td class="pick">"Nobody may do X"</td><td class="why">Restrict only, never grant. Not applied to management account.</td></tr>
+        <tr><td class="topic">Config / CloudTrail</td><td class="pick">Resource state / who called what</td><td class="why">Config = compliance + remediation. CloudTrail = audit log.</td></tr>
       </tbody>
     </table>
 
-    <!-- ============================================ -->
-    <h2>7. Cost management &amp; governance tools</h2>
-    <p class="section-note">Easy marks. Each tool answers a different question &mdash; "what did I spend", "warn me before", "what should I resize", "am I compliant".</p>
-    <table class="guide-table cs-table">
-      <thead><tr><th class="topic">Tool</th><th class="pick">Answers the question</th><th>Discriminator</th></tr></thead>
-      <tbody>
-        <tr><td class="topic">Cost Explorer</td><td class="pick">"Where did the money go, and what's the forecast?"</td><td class="why">Visualize + forecast by service/account/tag, up to 12 months history. Also surfaces rightsizing and RI/SP recommendations.</td></tr>
-        <tr><td class="topic">AWS Budgets</td><td class="pick">"Alert me <em>before</em> I overspend."</td><td class="why">Thresholds on actual <em>or forecasted</em> spend/usage. "Proactive alert" = Budgets, not Cost Explorer.</td></tr>
-        <tr><td class="topic">Cost &amp; Usage Report (CUR)</td><td class="pick">"Give me every line item."</td><td class="why">Most granular, hourly, delivered to S3, queried with Athena/Redshift. "Detailed custom analysis" = CUR.</td></tr>
-        <tr><td class="topic">Cost Anomaly Detection</td><td class="pick">"Tell me when spend behaves oddly."</td><td class="why">ML-based spike detection, no fixed threshold to set.</td></tr>
-        <tr><td class="topic">Compute Optimizer</td><td class="pick">"What should I resize?"</td><td class="why">ML rightsizing for EC2, EBS, Lambda, ECS/Fargate &mdash; resources already in AWS.</td></tr>
-        <tr><td class="topic">Trusted Advisor</td><td class="pick">"Am I following best practice?"</td><td class="why">Five pillars: cost, performance, security, fault tolerance, service limits. <span class="pill trap">Trap</span> full checks require Business or Enterprise Support.</td></tr>
-        <tr><td class="topic">Cost allocation tags</td><td class="pick">"Which team spent this?"</td><td class="why">Must be <em>activated</em> in the billing console before they appear in reports. Chargeback/showback = tags.</td></tr>
-        <tr><td class="topic">Organizations + consolidated billing</td><td class="pick">"One bill, shared volume discounts."</td><td class="why">Pools usage across accounts so everyone hits tiered pricing sooner; RIs/SPs float across accounts.</td></tr>
-        <tr><td class="topic">Service Control Policies (SCPs)</td><td class="pick">"Nobody &mdash; not even an account admin &mdash; may do X."</td><td class="why">Guardrails, not grants. They only <em>restrict</em>; they never give permissions. Don't apply to the management account.</td></tr>
-        <tr><td class="topic">AWS Config</td><td class="pick">"Is this resource compliant, and fix it."</td><td class="why">Records configuration state over time + rules + auto-remediation.</td></tr>
-        <tr><td class="topic">CloudTrail</td><td class="pick">"Who called which API, from where?"</td><td class="why">The audit log. Multi-Region trail to S3 for a year+ retention.</td></tr>
-        <tr><td class="topic">Control Tower</td><td class="pick">"Set up a compliant multi-account landing zone."</td><td class="why">Opinionated wrapper over Organizations + SCPs + Config.</td></tr>
-      </tbody>
-    </table>
-
-    <!-- ============================================ -->
-    <h2>8. Data protection &amp; encryption quick hits</h2>
-    <p class="section-note">Not on your skip list, and worth 10 minutes: Design Secure Architectures is the largest single domain (~30%), and most of it is data-layer decisions you already half-know.</p>
+    <h2>8. Encryption</h2>
+    <p class="section-note">Not skippable: Secure Architectures is ~30% of the exam, the biggest domain.</p>
     <table class="guide-table cs-table">
       <thead><tr><th class="topic">Decision</th><th class="pick">Answer</th><th>Why</th></tr></thead>
       <tbody>
-        <tr><td class="topic">SSE-S3 vs SSE-KMS</td><td class="pick">KMS when you need an audit trail or key control</td><td class="why">SSE-S3 is free and automatic but key usage isn't individually logged. SSE-KMS logs every decrypt in CloudTrail. <span class="pill trap">Trap</span> KMS has request quotas &mdash; very high-volume S3 access can throttle; S3 Bucket Keys fix that.</td></tr>
-        <tr><td class="topic">SSE-C</td><td class="pick">You send the key on every request</td><td class="why">AWS stores nothing. Rarely correct unless the question insists AWS must never hold the key <em>and</em> doesn't mention an HSM.</td></tr>
-        <tr><td class="topic">KMS vs CloudHSM</td><td class="pick">CloudHSM for single-tenant FIPS 140-2 Level 3, keys you alone control</td><td class="why">KMS is multi-tenant and AWS-managed. "We must own/hold the key material" = CloudHSM.</td></tr>
-        <tr><td class="topic">Secrets Manager vs Parameter Store</td><td class="pick">Secrets Manager if rotation is required</td><td class="why">Built-in scheduled rotation (native for RDS). Parameter Store standard tier is free with SecureString + KMS, but no rotation.</td></tr>
-        <tr><td class="topic">Encrypt an existing unencrypted RDS instance</td><td class="pick">Snapshot &rarr; copy with encryption &rarr; restore</td><td class="why">You cannot toggle encryption in place. Same pattern for unencrypted EBS volumes.</td></tr>
-        <tr><td class="topic">Share an encrypted EBS snapshot cross-account</td><td class="pick">Must use a customer managed KMS key and share the key</td><td class="why">Snapshots encrypted with the default AWS managed key <em>cannot</em> be shared. And encrypted snapshots can never be made public.</td></tr>
-        <tr><td class="topic">Force TLS / force encryption on upload</td><td class="pick">Bucket policy conditions</td><td class="why">Deny when <code>aws:SecureTransport</code> is false; deny <code>PutObject</code> without the SSE header.</td></tr>
-        <tr><td class="topic">ACM certificates</td><td class="pick">Free public certs, auto-renewing, on ALB/CloudFront/API GW</td><td class="why"><span class="pill trap">Trap</span> <em>Imported</em> certs do not auto-renew. Also, CloudFront requires the cert in <strong>us-east-1</strong>.</td></tr>
-        <tr><td class="topic">Macie / GuardDuty / Inspector / Detective / Security Hub</td><td class="pick">Data / threats / vulnerabilities / investigation / aggregation</td><td class="why">Five services, five distinct jobs &mdash; the exam tests exactly this separation.</td></tr>
-        <tr><td class="topic">IAM role vs access keys</td><td class="pick">Always the role</td><td class="why">Temporary, auto-rotated credentials. Any answer mentioning stored long-lived keys is wrong on this exam.</td></tr>
-        <tr><td class="topic">Permissions boundary vs SCP</td><td class="pick">Boundary caps a principal; SCP caps an account/OU</td><td class="why">"Developers can create roles but never exceed X" = permissions boundary.</td></tr>
+        <tr><td class="topic">SSE-S3 vs SSE-KMS</td><td class="pick">KMS for audit or key control</td><td class="why">KMS logs every decrypt. <span class="pill trap">Trap</span> KMS quotas throttle high-volume S3 &mdash; fix with Bucket Keys.</td></tr>
+        <tr><td class="topic">KMS vs CloudHSM</td><td class="pick">CloudHSM for single-tenant FIPS L3</td><td class="why">"We must hold the keys."</td></tr>
+        <tr><td class="topic">Secrets Manager vs Parameter Store</td><td class="pick">Secrets Manager if rotation needed</td><td class="why">Parameter Store standard is free, no rotation.</td></tr>
+        <tr><td class="topic">Encrypt existing RDS / EBS</td><td class="pick">Snapshot &rarr; copy encrypted &rarr; restore</td><td class="why">Cannot toggle in place.</td></tr>
+        <tr><td class="topic">Share encrypted snapshot</td><td class="pick">Customer managed key, shared</td><td class="why">Default AWS managed key can't be shared. Never public.</td></tr>
+        <tr><td class="topic">Force TLS / encryption</td><td class="pick">Bucket policy conditions</td><td class="why">Deny <code>aws:SecureTransport=false</code>; deny Put without SSE header.</td></tr>
+        <tr><td class="topic">ACM</td><td class="pick">Free auto-renewing public certs</td><td class="why"><span class="pill trap">Trap</span> imported certs don't renew; CloudFront needs the cert in us-east-1.</td></tr>
+        <tr><td class="topic">Macie / GuardDuty / Inspector / Security Hub</td><td class="pick">Data / threats / CVEs / aggregation</td><td class="why">Four jobs, tested by separation.</td></tr>
+        <tr><td class="topic">Permissions boundary vs SCP</td><td class="pick">Boundary caps a principal, SCP an account</td><td class="why">"Devs create roles but never exceed X" = boundary.</td></tr>
+        <tr><td class="topic">IAM role vs access keys</td><td class="pick">Always the role</td><td class="why">Stored long-lived keys are never right.</td></tr>
       </tbody>
     </table>
 
-    <!-- ============================================ -->
-    <h2>9. Service one-liners &mdash; the ones that show up as options</h2>
-    <p class="section-note">You asked for this: services you rarely touch but that appear as plausible answers. One line each &mdash; enough to recognise or eliminate.</p>
+    <h2>9. Service one-liners</h2>
+    <p class="section-note">Enough to recognise or eliminate when they appear as options.</p>
     <div class="svc-grid">
-      <div class="svc"><strong>Lightsail</strong> Pre-packaged VPS with predictable flat monthly pricing &mdash; the "simple website, minimal AWS knowledge, fixed low price" answer. Wrong whenever scaling or AWS integration matters.</div>
-      <div class="svc"><strong>Elastic Beanstalk</strong> Upload code, AWS provisions and manages the stack &mdash; "deploy without managing infrastructure but keep EC2 control".</div>
-      <div class="svc"><strong>App Runner</strong> Container or repo straight to a scaled HTTPS service, zero infra config.</div>
-      <div class="svc"><strong>AWS Batch</strong> Queue and run batch compute jobs at scale, Spot-friendly.</div>
-      <div class="svc"><strong>Outposts</strong> Real AWS racks in <em>your</em> data center &mdash; "must stay on-premises for latency or data residency".</div>
-      <div class="svc"><strong>Local Zones</strong> AWS infrastructure close to a specific metro for single-digit ms latency.</div>
-      <div class="svc"><strong>Wavelength</strong> Compute inside 5G carrier networks for ultra-low-latency mobile apps.</div>
-      <div class="svc"><strong>Global Accelerator</strong> Two static anycast IPs + AWS backbone routing for any TCP/UDP &mdash; the non-HTTP, static-IP answer.</div>
-      <div class="svc"><strong>CloudFront</strong> Global HTTP(S) cache at edge locations; also signed URLs/cookies for paid content.</div>
-      <div class="svc"><strong>Route 53</strong> DNS + health checks. Policies: simple, weighted (canary), latency, failover (active-passive), geolocation, geoproximity, multivalue.</div>
-      <div class="svc"><strong>PrivateLink</strong> Expose one service privately to many VPCs without peering.</div>
+      <div class="svc"><strong>Lightsail</strong> Flat-price simple VPS. "Minimal AWS knowledge, fixed cost."</div>
+      <div class="svc"><strong>Elastic Beanstalk</strong> Upload code, AWS runs the stack, you keep EC2 access.</div>
+      <div class="svc"><strong>App Runner</strong> Container or repo &rarr; scaled HTTPS service, zero config.</div>
+      <div class="svc"><strong>AWS Batch</strong> Queues and runs batch jobs. Spot-friendly.</div>
+      <div class="svc"><strong>Outposts</strong> AWS racks in your data center. Data residency / latency.</div>
+      <div class="svc"><strong>Local Zones / Wavelength</strong> Compute near a metro / inside 5G networks.</div>
+      <div class="svc"><strong>Global Accelerator</strong> Static anycast IPs, any TCP/UDP, AWS backbone.</div>
+      <div class="svc"><strong>CloudFront</strong> Edge HTTP cache; signed URLs for paid content.</div>
+      <div class="svc"><strong>Route 53</strong> DNS. Policies: weighted (canary), latency, failover, geolocation, multivalue.</div>
+      <div class="svc"><strong>PrivateLink</strong> One service exposed privately to many VPCs.</div>
       <div class="svc"><strong>Transit Gateway</strong> Hub-and-spoke router for many VPCs + on-prem.</div>
-      <div class="svc"><strong>Direct Connect</strong> Dedicated private circuit to AWS &mdash; consistent bandwidth and latency; takes weeks to provision (VPN is the quick interim answer).</div>
-      <div class="svc"><strong>Network Firewall</strong> Managed stateful firewall/IPS for a whole VPC.</div>
-      <div class="svc"><strong>Firewall Manager</strong> Centrally apply WAF/Shield/security-group rules across an Organization.</div>
-      <div class="svc"><strong>WAF</strong> Layer-7 filtering (SQLi, XSS, rate limiting) on ALB/CloudFront/API GW.</div>
-      <div class="svc"><strong>Shield Advanced</strong> Paid DDoS tier: DDoS Response Team + cost protection during attacks.</div>
-      <div class="svc"><strong>AppSync</strong> Managed GraphQL API with real-time subscriptions.</div>
-      <div class="svc"><strong>Amplify</strong> Full-stack hosting/CI for web and mobile front-ends.</div>
-      <div class="svc"><strong>AppFlow</strong> No-code data transfer between SaaS apps (Salesforce, Slack) and AWS.</div>
-      <div class="svc"><strong>Amazon MQ</strong> Managed ActiveMQ/RabbitMQ &mdash; the answer only when migrating an app that needs <em>existing</em> protocols (JMS, AMQP, MQTT). Otherwise SQS/SNS.</div>
-      <div class="svc"><strong>EventBridge</strong> Event bus with content-based routing, SaaS sources, and Scheduler.</div>
-      <div class="svc"><strong>Step Functions</strong> Visual, durable workflow orchestration with retries and long waits.</div>
-      <div class="svc"><strong>SWF</strong> Legacy orchestration predating Step Functions &mdash; treat as a distractor.</div>
-      <div class="svc"><strong>Systems Manager (SSM)</strong> Patch, run commands, Session Manager shell without SSH/bastion, Parameter Store.</div>
-      <div class="svc"><strong>AppConfig</strong> Safely roll out configuration and feature flags.</div>
-      <div class="svc"><strong>CloudFormation</strong> Declarative IaC; drift detection, StackSets across accounts/Regions.</div>
-      <div class="svc"><strong>CDK / SAM</strong> IaC in a programming language / serverless-focused template shorthand.</div>
-      <div class="svc"><strong>Service Catalog</strong> Curated, approved product templates for end users to self-serve.</div>
-      <div class="svc"><strong>License Manager</strong> Track and enforce BYOL license usage &mdash; pairs with Dedicated Hosts.</div>
-      <div class="svc"><strong>RAM (Resource Access Manager)</strong> Share subnets, TGWs, and other resources across accounts.</div>
-      <div class="svc"><strong>Directory Service</strong> Managed Microsoft AD / AD Connector for AD-dependent workloads.</div>
-      <div class="svc"><strong>IAM Identity Center</strong> Workforce SSO across all Organization accounts (successor to AWS SSO).</div>
-      <div class="svc"><strong>Cognito</strong> Sign-up/sign-in for <em>app end users</em>; identity pools exchange tokens for temporary AWS credentials.</div>
-      <div class="svc"><strong>X-Ray</strong> Distributed tracing &mdash; "find the slow microservice / trace a request end-to-end".</div>
-      <div class="svc"><strong>CloudWatch</strong> Metrics, logs, alarms, dashboards. Logs Insights for querying logs.</div>
-      <div class="svc"><strong>Audit Manager</strong> Automates evidence collection for audits (SOC2, PCI).</div>
-      <div class="svc"><strong>AWS Artifact</strong> Self-service download of AWS compliance reports.</div>
-      <div class="svc"><strong>Well-Architected Tool</strong> Self-review workload against the six pillars.</div>
-      <div class="svc"><strong>Fault Injection Service</strong> Managed chaos engineering experiments.</div>
-      <div class="svc"><strong>Resilience Hub</strong> Assess an application against your RTO/RPO targets.</div>
-      <div class="svc"><strong>Elastic Transcoder / MediaConvert</strong> Video transcoding (MediaConvert is the current one).</div>
-      <div class="svc"><strong>Kendra</strong> ML-powered enterprise document search in natural language.</div>
-      <div class="svc"><strong>Comprehend</strong> NLP: sentiment, entities, key phrases, PII detection in text.</div>
-      <div class="svc"><strong>Textract</strong> Extract text, forms, and tables from scanned documents/PDFs.</div>
-      <div class="svc"><strong>Rekognition</strong> Image and video analysis: objects, faces, moderation.</div>
-      <div class="svc"><strong>Transcribe / Translate / Polly</strong> Speech&rarr;text / language translation / text&rarr;speech.</div>
-      <div class="svc"><strong>Personalize / Forecast / Fraud Detector</strong> Managed recommendations / time-series forecasting / fraud scoring.</div>
+      <div class="svc"><strong>Direct Connect</strong> Dedicated private circuit. Takes weeks &mdash; VPN is the interim answer.</div>
+      <div class="svc"><strong>Network Firewall / Firewall Manager</strong> VPC-wide firewall / central rule management.</div>
+      <div class="svc"><strong>WAF</strong> Layer-7 filtering: SQLi, XSS, rate limiting.</div>
+      <div class="svc"><strong>Shield Advanced</strong> Paid DDoS: response team + cost protection.</div>
+      <div class="svc"><strong>AppSync / Amplify</strong> Managed GraphQL / front-end hosting and CI.</div>
+      <div class="svc"><strong>AppFlow</strong> No-code SaaS &harr; AWS data transfer.</div>
+      <div class="svc"><strong>Amazon MQ</strong> Managed ActiveMQ/RabbitMQ. Only for existing JMS/AMQP apps.</div>
+      <div class="svc"><strong>EventBridge</strong> Event bus, content routing, SaaS sources, scheduler.</div>
+      <div class="svc"><strong>SWF / Data Pipeline</strong> Legacy orchestration. Distractors.</div>
+      <div class="svc"><strong>Systems Manager</strong> Patching, Session Manager shell without SSH, Parameter Store.</div>
+      <div class="svc"><strong>CloudFormation / CDK</strong> Declarative IaC / IaC in a real language. StackSets span accounts.</div>
+      <div class="svc"><strong>Service Catalog</strong> Approved templates for self-service.</div>
+      <div class="svc"><strong>License Manager</strong> Tracks BYOL usage. Pairs with Dedicated Hosts.</div>
+      <div class="svc"><strong>RAM</strong> Share subnets and TGWs across accounts.</div>
+      <div class="svc"><strong>Directory Service</strong> Managed Microsoft AD for AD-dependent workloads.</div>
+      <div class="svc"><strong>IAM Identity Center</strong> Workforce SSO across all accounts.</div>
+      <div class="svc"><strong>Cognito</strong> Sign-in for <em>app users</em>; identity pools give temporary AWS creds.</div>
+      <div class="svc"><strong>X-Ray</strong> Distributed tracing. "Find the slow microservice."</div>
+      <div class="svc"><strong>Control Tower</strong> Opinionated multi-account landing zone.</div>
+      <div class="svc"><strong>Audit Manager / Artifact</strong> Collects audit evidence / downloads AWS compliance reports.</div>
+      <div class="svc"><strong>Fault Injection Service</strong> Managed chaos experiments.</div>
+      <div class="svc"><strong>MediaConvert</strong> Video transcoding.</div>
+      <div class="svc"><strong>Kendra</strong> Natural-language enterprise document search.</div>
+      <div class="svc"><strong>Comprehend / Textract</strong> NLP on text / extract text and tables from documents.</div>
+      <div class="svc"><strong>Rekognition</strong> Image and video analysis.</div>
+      <div class="svc"><strong>Transcribe / Translate / Polly</strong> Speech&rarr;text / translation / text&rarr;speech.</div>
       <div class="svc"><strong>SageMaker</strong> Build, train, deploy custom ML models.</div>
-      <div class="svc"><strong>SES / Pinpoint</strong> Bulk transactional email / multi-channel customer messaging campaigns.</div>
-      <div class="svc"><strong>Amazon Connect</strong> Cloud contact center.</div>
-      <div class="svc"><strong>WorkSpaces / AppStream 2.0</strong> Managed virtual desktops / stream a single application.</div>
-      <div class="svc"><strong>IoT Core / Greengrass</strong> Connect IoT devices at scale / run compute on the devices themselves.</div>
-      <div class="svc"><strong>Ground Station / Braket</strong> Satellite downlink as a service / quantum computing. Pure distractors on SAA.</div>
+      <div class="svc"><strong>SES / Pinpoint</strong> Bulk email / multi-channel campaigns.</div>
+      <div class="svc"><strong>WorkSpaces / AppStream</strong> Virtual desktops / stream one app.</div>
+      <div class="svc"><strong>IoT Core / Greengrass</strong> Device connectivity / compute on the device.</div>
+      <div class="svc"><strong>Ground Station / Braket</strong> Satellite / quantum. Pure distractors.</div>
     </div>
 
-    <!-- ============================================ -->
-    <h2>10. Traps that catch experienced people</h2>
-    <p class="section-note">Specifically the ones where real-world instinct points the wrong way on the exam.</p>
+    <h2>10. Traps for experienced people</h2>
+    <p class="section-note">Where real-world instinct points the wrong way.</p>
     <table class="guide-table cs-table">
-      <thead><tr><th class="topic">You'd instinctively&hellip;</th><th>But the exam wants&hellip;</th></tr></thead>
+      <thead><tr><th class="topic">Instinct</th><th>Exam wants</th></tr></thead>
       <tbody>
-        <tr><td class="topic">Build it yourself on EC2 because you know how</td><td class="why">The managed service, every time "operational overhead" appears. Your competence is not the criterion &mdash; the adjective is.</td></tr>
-        <tr><td class="topic">Reach for Multi-AZ to scale reads</td><td class="why">Multi-AZ is availability only. The standby is invisible. Read replicas scale reads.</td></tr>
-        <tr><td class="topic">Use a NAT gateway for private-subnet AWS API calls</td><td class="why">VPC endpoints &mdash; gateway (free) for S3/DynamoDB, interface for the rest.</td></tr>
-        <tr><td class="topic">Assume Glacier is always cheapest</td><td class="why">Minimum durations (90/180 days) and 128 KB minimum billable size can make it more expensive for small or short-lived objects.</td></tr>
-        <tr><td class="topic">Pick Standard-IA for "infrequent"</td><td class="why">If the pattern is <em>unknown or changing</em>, Intelligent-Tiering &mdash; it's the one with no retrieval fee.</td></tr>
-        <tr><td class="topic">Use sticky sessions to fix session loss</td><td class="why">Externalize state to ElastiCache/DynamoDB. Stickiness still loses the session when the instance dies.</td></tr>
-        <tr><td class="topic">Say "SNS" for reliable delivery to one consumer</td><td class="why">SQS. SNS is push fan-out; pair SNS&rarr;SQS when several consumers each need a durable copy.</td></tr>
-        <tr><td class="topic">Treat security groups as having deny rules</td><td class="why">SGs are allow-only and stateful. NACLs are stateless and have explicit deny.</td></tr>
-        <tr><td class="topic">Assume one NAT gateway is fine</td><td class="why">It's zonal. One per AZ, or an AZ failure takes out egress for everyone.</td></tr>
-        <tr><td class="topic">Reach for Kinesis for any queue</td><td class="why">If there's one consumer and no replay requirement, SQS is simpler and cheaper.</td></tr>
-        <tr><td class="topic">Pick Spot for anything to save money</td><td class="why">Only for interruptible work. A stateful primary database on Spot is always wrong.</td></tr>
-        <tr><td class="topic">Forget the free tiers of data transfer</td><td class="why">Inbound is free; S3&rarr;CloudFront is free; same-AZ private IP is free. "Reduce transfer cost" usually means routing traffic into one of those.</td></tr>
+        <tr><td class="topic">Build it on EC2, you know how</td><td class="why">The managed service. Your competence isn't the criterion &mdash; the adjective is.</td></tr>
+        <tr><td class="topic">Multi-AZ to scale reads</td><td class="why">Standby is invisible. Read replicas scale reads.</td></tr>
+        <tr><td class="topic">NAT for private AWS API calls</td><td class="why">VPC endpoints. Gateway ones are free.</td></tr>
+        <tr><td class="topic">Glacier is always cheapest</td><td class="why">90/180-day minimums and 128 KB floor can make it dearer.</td></tr>
+        <tr><td class="topic">Standard-IA for "infrequent"</td><td class="why">If the pattern is <em>unknown</em>, Intelligent-Tiering.</td></tr>
+        <tr><td class="topic">Sticky sessions fix session loss</td><td class="why">Externalize to ElastiCache/DynamoDB.</td></tr>
+        <tr><td class="topic">SNS for reliable delivery to one consumer</td><td class="why">SQS. SNS&rarr;SQS when several need a copy.</td></tr>
+        <tr><td class="topic">Security groups have deny rules</td><td class="why">Allow-only and stateful. NACLs are stateless with deny.</td></tr>
+        <tr><td class="topic">One NAT gateway is fine</td><td class="why">It's zonal. One per AZ.</td></tr>
+        <tr><td class="topic">Kinesis for any queue</td><td class="why">One consumer, no replay &rarr; SQS is simpler and cheaper.</td></tr>
+        <tr><td class="topic">Spot saves money anywhere</td><td class="why">Never for a stateful primary database.</td></tr>
       </tbody>
     </table>
 
     <div class="callout tip">
-      <p><strong>Exam mechanics:</strong> 65 questions in 130 minutes (50 scored + 15 unscored), pass mark ~720/1000. That's <strong>2 minutes per question</strong> &mdash; flag anything that takes longer and come back. Multiple-response questions state how many to pick, and there is <em>no partial credit</em>.</p>
-      <p><strong>Elimination beats recall.</strong> Two options are usually obviously wrong; the remaining two differ by exactly one adjective from section 1. Find that adjective.</p>
+      <p><strong>65 questions / 130 minutes</strong> = 2 min each. Pass ~720/1000. Multi-response states how many to pick; <strong>no partial credit</strong>.</p>
+      <p><strong>Eliminate, don't recall.</strong> Two options are obviously wrong; the last two differ by one adjective from section 1.</p>
     </div>
 
     <div class="exam-nav" style="margin-top:28px;">
