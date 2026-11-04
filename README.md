@@ -23,7 +23,7 @@ python3 -m http.server 8111
 |---|---|
 | [index.html](index.html) | The practice exam &mdash; topic filter, no-repeat question selection, partial-credit grading |
 | [study-guide.html](study-guide.html) | Course triage: which lectures to Study / Skim / Drop |
-| [cheatsheet.html](cheatsheet.html) | Decision cheatsheet &mdash; cost ladders, service discriminators, keyword triggers, one-line service glossary. Searchable. |
+| [cheatsheet.html](cheatsheet.html) | One-stop SAA-C03 cheatsheet for people who already use AWS &mdash; exam format and Oct 2026 scope changes, constraint words, keyword &rarr; service, scenario patterns, cost ladders, per-domain deep facts (S3, storage, DBs, compute, integration, networking, security, DR/migration, analytics, governance), numbers to memorise, traps, exam-day playbook. Searchable. |
 
 ## Features
 
@@ -42,18 +42,18 @@ python3 -m http.server 8111
 
 ## Question bank
 
-All questions live in [questions.js](questions.js) — currently **115 questions**, organized by topic and tagged with their exam domain.
+All questions live in [questions.js](questions.js) — currently **184 questions**, organized by topic and tagged with their exam domain.
 
 **Topics** (the filter chips on the start screen):
 
 | Topic | Qs | Topic | Qs |
 |---|---|---|---|
-| IAM & Identity | 9 | Storage | 12 |
-| Data Protection & Encryption | 9 | Databases | 11 |
-| Network & Edge Security | 9 | Decoupling & Integration | 11 |
-| VPC & Hybrid Connectivity | 10 | Analytics & Data Pipelines | 7 |
-| DNS, CDN & Global Traffic | 8 | Migration & Transfer | 8 |
-| Compute, Containers & Scaling | 11 | Cost Management & Governance | 10 |
+| IAM & Identity | 14 | Storage | 19 |
+| Data Protection & Encryption | 13 | Databases | 19 |
+| Network & Edge Security | 14 | Decoupling & Integration | 16 |
+| VPC & Hybrid Connectivity | 16 | Analytics & Data Pipelines | 12 |
+| DNS, CDN & Global Traffic | 13 | Migration & Transfer | 12 |
+| Compute, Containers & Scaling | 18 | Cost Management & Governance | 18 |
 
 **Exam domains** (used for the results breakdown, weighted like the real exam):
 
