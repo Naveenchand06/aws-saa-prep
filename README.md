@@ -1,6 +1,6 @@
 # AWS Certs Prep — SAA-C03 Practice Exams
 
-A lightweight, fully local practice-exam app for the **AWS Solutions Architect – Associate (SAA-C03)** exam. No dependencies, no build step, no internet required.
+A lightweight practice-exam app for the **AWS Solutions Architect – Associate (SAA-C03)** exam. No build step. The practice exam works offline; the cheatsheet loads Vue 3 and fonts from a CDN.
 
 ## Run it
 
@@ -23,7 +23,7 @@ python3 -m http.server 8111
 |---|---|
 | [index.html](index.html) | The practice exam &mdash; topic filter, no-repeat question selection, partial-credit grading |
 | [study-guide.html](study-guide.html) | Course triage: which lectures to Study / Skim / Drop |
-| [cheatsheet.html](cheatsheet.html) | One-stop SAA-C03 cheatsheet for people who already use AWS &mdash; exam format and Oct 2026 scope changes, constraint words, keyword &rarr; service, scenario patterns, cost ladders, per-domain deep facts (S3, storage, DBs, compute, integration, networking, security, DR/migration, analytics, governance), numbers to memorise, traps, exam-day playbook. Searchable. |
+| [cheatsheet.html](cheatsheet.html) | One-stop SAA-C03 cheatsheet for people who already use AWS (Vue 3 app, dark theme by default). Exam format, constraint words, keyword &rarr; service, scenario patterns, cost ladders, per-domain deep facts, numbers, traps, exam-day playbook, plus a **Service directory** of ~160 services, each with its category, a one-word purpose and how it's run (Serverless / Managed / Self-managed / Tool). Service names anywhere on the page show that card on hover. Constraint words, numbers and negations are highlighted. Search everything (`/`), flag rows to revisit, mark sections read. |
 
 ## Features
 
@@ -39,6 +39,12 @@ python3 -m http.server 8111
   - Breakdown by exam domain **and by topic (weakest first)**, so you know exactly what to filter on next session
   - Full answer review — every option annotated with a one-liner on why it's right or wrong
 - Last 5 session scores kept in browser localStorage
+
+## Editing the cheatsheet
+
+- Content lives in [cheatsheet-data.js](cheatsheet-data.js): sections made of `note`, `h3`, `table` and `callout` blocks. Cells are small HTML snippets.
+- The service directory lives in [services.js](services.js). Each entry has a category, a one-word purpose (`u`), a type (`t`), a one-liner, an exam cue, and the aliases used to auto-link it in the text.
+- Service links and keyword highlights are added automatically at load time ([cheatsheet.js](cheatsheet.js)), so plain text in the data files is enough.
 
 ## Question bank
 
